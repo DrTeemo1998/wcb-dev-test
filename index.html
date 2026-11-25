@@ -1,0 +1,2006 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Wedding Card Builder — Tạo thiệp cưới online</title>
+<meta name="description" content="Admin Builder tạo thiệp cưới online: nhập liệu, xem trước trực tiếp, xuất file HTML độc lập hoặc đẩy lên GitHub Pages cho khách.">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Cormorant+Garamond:wght@500;600&family=Great+Vibes&display=swap">
+<style>
+/* Builder — style riêng ngoài Tailwind CDN (khung preview, panel, template picker). */
+:root { --gold: #8c6b3e; }
+html { scroll-behavior: smooth; }
+body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+
+.field label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #374151; }
+.field input, .field select, .field textarea {
+  width: 100%; border: 1px solid #d1d5db; border-radius: 10px; padding: 9px 11px;
+  font-size: 14px; background: #fff; color: #111827;
+}
+.field input:focus, .field select:focus, .field textarea:focus {
+  outline: 2px solid var(--gold); outline-offset: 0; border-color: var(--gold);
+}
+.field textarea { min-height: 72px; resize: vertical; }
+.field .hint { font-size: 12px; color: #6b7280; margin-top: 3px; }
+
+.tpl-card { border: 2px solid #e5e7eb; border-radius: 12px; padding: 10px; cursor: pointer; text-align: left; background: #fff; transition: border-color .15s, box-shadow .15s; }
+.tpl-card:hover { border-color: #c9a86a; }
+.tpl-card[aria-pressed="true"] { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(140,107,62,.18); }
+.tpl-swatch { height: 44px; border-radius: 8px; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; font-family: Georgia, serif; font-weight: 700; font-size: 18px; }
+
+.seg { display: inline-flex; border: 1px solid #d1d5db; border-radius: 999px; overflow: hidden; background: #fff; }
+.seg button { padding: 7px 14px; font-size: 13px; font-weight: 600; color: #374151; background: transparent; border: 0; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--gold); color: #fff; }
+
+.preview-frame { margin: 0 auto; background: #fdfbf7; border: 10px solid #241d16; border-radius: 36px; overflow: hidden; box-shadow: 0 18px 44px rgba(60,42,18,.22); transition: width .25s ease; position: relative; display: flex; flex-direction: column; }
+.preview-frame.mobile { width: min(390px, 100%); height: 760px; }
+.preview-frame.desktop { width: 100%; height: 760px; }
+.preview-scroll { flex: 1; min-height: 0; overflow-y: auto; position: relative; }
+.preview-scroll .inv { min-height: 100%; }
+.preview-scroll .inv canvas.fx { position: absolute; }
+
+.row-card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; background: #f9fafb; margin-bottom: 10px; }
+.qr-preview img { max-width: 200px; width: 100%; border: 1px solid #e5e7eb; border-radius: 12px; display: block; margin: 8px auto; }
+
+.status-line { font-size: 13px; border-radius: 10px; padding: 10px 12px; margin-top: 10px; display: none; }
+.status-line.show { display: block; }
+.status-line.ok { background: #e7f3e7; color: #2e7d32; border: 1px solid #bfddbf; }
+.status-line.err { background: #fbeaea; color: #b3261e; border: 1px solid #f0c4c0; }
+.status-line.info { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+.status-line ul { margin: 6px 0 0; padding-left: 18px; }
+.status-line li.done { color: #2e7d32; }
+.status-line li.fail { color: #b3261e; }
+
+.toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(20px); background: #241d16; color: #f6efe2; padding: 12px 18px; border-radius: 999px; font-size: 14px; opacity: 0; pointer-events: none; transition: .25s; z-index: 99; max-width: 92vw; text-align: center; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+@media (max-width: 1023px) {
+  .preview-frame.mobile, .preview-frame.desktop { height: 720px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; scroll-behavior: auto !important; }
+}
+
+</style>
+<style id="previewStyle"></style>
+</head>
+<body class="bg-stone-100 text-stone-900">
+
+<header class="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-stone-200">
+  <div class="max-w-[1400px] mx-auto px-4 py-3 flex flex-wrap items-center gap-3 justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-11 h-11 rounded-full border-2 border-[#8c6b3e] grid place-items-center font-serif font-bold text-[#8c6b3e] text-lg">N&amp;H</div>
+      <div>
+        <b class="font-serif text-xl leading-tight block">Wedding Card Builder</b>
+        <span class="text-xs text-stone-500">Admin Builder · Xuất HTML độc lập · Push GitHub Pages</span>
+      </div>
+    </div>
+    <div class="flex flex-wrap gap-2 items-center">
+      <span id="saveState" class="text-xs text-stone-500 hidden sm:inline">Chưa lưu</span>
+      <button id="btnLoadSample" type="button" class="px-4 py-2 rounded-full border border-stone-300 bg-white text-sm font-semibold hover:border-[#8c6b3e]">Nạp dữ liệu mẫu</button>
+      <button id="btnSave" type="button" class="px-4 py-2 rounded-full border border-stone-300 bg-white text-sm font-semibold hover:border-[#8c6b3e]">Lưu</button>
+      <button id="btnClear" type="button" class="px-4 py-2 rounded-full border border-red-300 text-red-600 bg-white text-sm font-semibold">Xoá</button>
+      <button id="btnExportHtml" type="button" class="px-4 py-2 rounded-full bg-[#8c6b3e] text-white text-sm font-bold">⬇ Xuất file HTML độc lập</button>
+    </div>
+  </div>
+  <div class="lg:hidden max-w-[1400px] mx-auto px-4 pb-3 flex gap-2">
+    <button id="tabBuilder" type="button" aria-pressed="true" class="flex-1 py-2 rounded-full text-sm font-bold bg-[#8c6b3e] text-white">✎ Soạn thiệp</button>
+    <button id="tabPreview" type="button" aria-pressed="false" class="flex-1 py-2 rounded-full text-sm font-bold bg-white border border-stone-300">👁 Xem trước</button>
+  </div>
+</header>
+
+<main class="max-w-[1400px] mx-auto px-4 py-5">
+  <div class="bg-amber-50 border border-amber-300 text-amber-900 rounded-xl px-4 py-3 text-sm mb-5">
+    <b>DỮ LIỆU MẪU - CẦN XÁC NHẬN:</b> dữ liệu mẫu Minh Nhật &amp; Thái Hà lấy từ Sheet gốc.
+    Tên địa điểm tiệc “Nhà Hàng Crown Tiền Hải” chưa xác nhận 100% có phải Crown Palace hay không;
+    số tài khoản cô dâu Vietcombank <b>376634531</b> chỉ có 9 chữ số, chưa xác thực.
+    Vui lòng xác nhận với cô dâu chú rể trước khi gửi thiệp cho khách thật.
+  </div>
+
+  <div class="grid lg:grid-cols-[480px_minmax(0,1fr)] gap-6 items-start">
+
+    <!-- ============ CỘT BUILDER ============ -->
+    <div id="builderCol" class="space-y-5 lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto lg:pr-1">
+
+      <section class="bg-white rounded-2xl border border-stone-200 p-5">
+        <h2 class="font-serif text-xl font-bold mb-1">1 · Cô dâu &amp; chú rể</h2>
+        <p class="text-sm text-stone-500 mb-4">Tên hiển thị lớn trên bìa thiệp.</p>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="field"><label>Tên chú rể</label><input data-bind="groomName"></div>
+          <div class="field"><label>Tên cô dâu</label><input data-bind="brideName"></div>
+          <div class="field"><label>Chú rể là con của — Ông</label><input data-bind="groomFather"></div>
+          <div class="field"><label>Chú rể là con của — Bà</label><input data-bind="groomMother"></div>
+          <div class="field"><label>Cô dâu là con của — Ông</label><input data-bind="brideFather"></div>
+          <div class="field"><label>Cô dâu là con của — Bà</label><input data-bind="brideMother"></div>
+          <div class="field"><label>SĐT chú rể</label><input data-bind="groomPhone" inputmode="tel"></div>
+          <div class="field"><label>SĐT cô dâu</label><input data-bind="bridePhone" inputmode="tel"></div>
+        </div>
+        <div class="field mt-3"><label>Lời ngỏ</label><textarea data-bind="inviteText"></textarea></div>
+        <div class="field"><label>Đường dẫn thiệp (slug)</label><input data-bind="slug"><p class="hint">Tự sinh từ tên cô dâu chú rể, ví dụ: minh-nhat-thai-ha. Dùng làm tên file và đường dẫn /khach-hang/…/ trên GitHub Pages.</p></div>
+      </section>
+
+      <section class="bg-white rounded-2xl border border-stone-200 p-5">
+        <h2 class="font-serif text-xl font-bold mb-1">2 · Ngày giờ &amp; địa điểm</h2>
+        <p class="text-sm text-stone-500 mb-4">Đếm ngược tính tới giờ lễ Vu Quy của ngày cưới (giờ Việt Nam).</p>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="field"><label>Ngày cưới</label><input type="date" data-bind="weddingDate"></div>
+          <div class="field"><label>Hạn RSVP</label><input type="date" data-bind="rsvpDeadline"></div>
+          <div class="field"><label>Giờ lễ Vu Quy</label><input data-bind="vuQuyTime"></div>
+          <div class="field"><label>Địa điểm Vu Quy</label><input data-bind="vuQuyPlace"></div>
+        </div>
+        <div class="field mt-3"><label>Địa chỉ nhà gái</label><input data-bind="vuQuyAddress"></div>
+        <div class="grid grid-cols-2 gap-3 mt-3">
+          <div class="field"><label>Giờ đón khách</label><input data-bind="partyWelcome"></div>
+          <div class="field"><label>Giờ khai tiệc</label><input data-bind="partyStart"></div>
+        </div>
+        <div class="field mt-3"><label>Nhà hàng / địa điểm tiệc</label><input data-bind="partyPlace"></div>
+        <div class="field"><label>Địa chỉ tiệc</label><input data-bind="partyAddress"></div>
+        <div class="field"><label>Dress code</label><input data-bind="dressCode"></div>
+        <div class="field"><label>Xem trước bản đồ tiệc</label><iframe id="mapPreview" title="Bản đồ địa điểm tiệc" class="w-full h-56 rounded-xl border border-stone-200" loading="lazy"></iframe><p class="hint">Bản đồ tự sinh từ tên + địa chỉ tiệc (Google Maps Embed, không cần API key).</p></div>
+      </section>
+
+      <section class="bg-white rounded-2xl border border-stone-200 p-5">
+        <h2 class="font-serif text-xl font-bold mb-1">3 · Lịch trình</h2>
+        <p class="text-sm text-stone-500 mb-4">Thêm / xoá mốc thoải mái, xem trước tự cập nhật.</p>
+        <div id="scheduleList"></div>
+        <button id="addSchedule" type="button" class="px-4 py-2 rounded-full border border-stone-300 text-sm font-semibold">+ Thêm mốc thời gian</button>
+      </section>
+
+      <section class="bg-white rounded-2xl border border-stone-200 p-5">
+        <h2 class="font-serif text-xl font-bold mb-1">4 · Câu chuyện tình yêu</h2>
+        <p class="text-sm text-stone-500 mb-4">Các mốc chuyện của cặp đôi, hiển thị theo dòng thời gian.</p>
+        <div id="storyList"></div>
+        <button id="addStory" type="button" class="px-4 py-2 rounded-full border border-stone-300 text-sm font-semibold">+ Thêm mốc câu chuyện</button>
+      </section>
+
+      <section class="bg-white rounded-2xl border border-stone-200 p-5">
+        <h2 class="font-serif text-xl font-bold mb-1">5 · Album ảnh</h2>
+        <p class="text-sm text-stone-500 mb-4">Tối đa 8 ảnh. Dán link ảnh trực tiếp (https://…). Ảnh hiển thị dạng cover, tự crop đúng tỉ lệ bằng CSS.</p>
+        <div class="field"><label>Ảnh bìa thiệp</label><input data-bind="coverUrl" type="url"></div>
+        <div id="albumList"></div>
+        <button id="addAlbum" type="button" class="px-4 py-2 rounded-full border border-stone-300 text-sm font-semibold">+ Thêm ảnh vào album</button>
+      </section>
+
+      <section class="bg-white rounded-2xl border border-stone-200 p-5">
+        <h2 class="font-serif text-xl font-bold mb-1">6 · Nhạc nền MP3</h2>
+        <p class="text-sm text-stone-500 mb-4">Dán link file MP3 trực tiếp (dạng https://…/ten-bai.mp3). Link YouTube, ZingMP3 hay Google Drive dạng xem trang sẽ không phát được. Trên mobile, nhạc chỉ phát sau khi khách chạm nút ♪ (quy tắc autoplay của trình duyệt).</p>
+        <div class="field"><label>Link nhạc MP3</label><input data-bind="musicUrl" type="url" placeholder="https://…/ten-bai.mp3"></div>
+        <p id="musicWarn" class="text-xs mt-2" style="color:#B91C1C" hidden></p>
+        <button id="btnTestMusic" type="button" class="px-4 py-2 rounded-full border border-stone-300 text-sm font-semibold">▶ Nghe thử nhạc</button>
+      </section>
+
+      <section class="bg-white rounded-2xl border border-stone-200 p-5">
+        <h2 class="font-serif text-xl font-bold mb-1">7 · Mừng cưới &amp; QR VietQR</h2>
+        <p class="text-sm text-stone-500 mb-4">Nhập đủ Ngân hàng + Số TK + Tên chủ TK thì mã QR VietQR tự sinh. Kiểm tra kỹ số tài khoản trước khi công bố.</p>
+        <h3 class="font-bold text-sm text-[#8c6b3e] mb-2">Tài khoản chú rể</h3>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="field"><label>Ngân hàng</label><input data-bind="groomBank"></div>
+          <div class="field"><label>Số tài khoản</label><input data-bind="groomAccount" inputmode="numeric"></div>
+          <div class="field col-span-2"><label>Chủ tài khoản (không dấu, như trên thẻ)</label><input data-bind="groomAccountName"></div>
+        </div>
+        <button type="button" data-copy-field="[data-bind='groomAccount']" class="text-sm font-semibold text-[#8c6b3e] underline">Sao chép STK chú rể</button>
+        <div id="qrGroom" class="qr-preview mt-2"></div>
+        <h3 class="font-bold text-sm text-[#8c6b3e] mt-5 mb-2">Tài khoản cô dâu</h3>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="field"><label>Ngân hàng</label><input data-bind="brideBank"></div>
+          <div class="field"><label>Số tài khoản</label><input data-bind="brideAccount" inputmode="numeric"></div>
+          <div class="field col-span-2"><label>Chủ tài khoản (không dấu, như trên thẻ)</label><input data-bind="brideAccountName"></div>
+        </div>
+        <button type="button" data-copy-field="[data-bind='brideAccount']" class="text-sm font-semibold text-[#8c6b3e] underline">Sao chép STK cô dâu</button>
+        <div id="qrBride" class="qr-preview mt-2"></div>
+        <div class="grid grid-cols-2 gap-3 mt-4">
+          <div class="field"><label>Số tiền gợi ý (để trống = khách tự nhập)</label><input data-bind="giftAmount" inputmode="numeric"></div>
+          <div class="field"><label>Nội dung chuyển khoản</label><input data-bind="giftNote"></div>
+        </div>
+      </section>
+
+      <section class="bg-white rounded-2xl border border-stone-200 p-5">
+        <h2 class="font-serif text-xl font-bold mb-1">8 · Template &amp; hiệu ứng</h2>
+        <p class="text-sm text-stone-500 mb-4">Chọn mẫu — màu, font và khung viền của thiệp đổi ngay trong khung xem trước.</p>
+        <div id="templatePicker" class="grid grid-cols-2 gap-3"></div>
+        <div class="mt-5">
+          <label class="flex items-center gap-3 cursor-pointer">
+            <input id="particleToggle" type="checkbox" class="w-5 h-5 accent-[#8c6b3e]">
+            <span class="font-semibold text-sm">Bật hiệu ứng hạt rơi</span>
+          </label>
+          <div class="flex flex-wrap gap-2 mt-3">
+            <button type="button" data-particle-type="sakura" class="seg" aria-pressed="true"><span class="px-3 py-2 text-sm font-semibold">🌸 Hoa đào rơi</span></button>
+            <button type="button" data-particle-type="heart" class="seg" aria-pressed="false"><span class="px-3 py-2 text-sm font-semibold">❤ Trái tim bay</span></button>
+            <button type="button" data-particle-type="snow" class="seg" aria-pressed="false"><span class="px-3 py-2 text-sm font-semibold">❄ Bông tuyết rơi</span></button>
+            <button type="button" data-particle-type="glitter" class="seg" aria-pressed="false"><span class="px-3 py-2 text-sm font-semibold">✨ Kim tuyến</span></button>
+          </div>
+          <p class="text-xs text-stone-500 mt-3">Canvas nhẹ 60fps, tối đa 36 hạt trên mobile / 70 hạt desktop (mobile = màn hình ≤640px hoặc máy có cảm ứng), tự dừng khi tab ẩn hoặc khi hệ thống bật giảm chuyển động. DPR giới hạn ở 2.</p>
+        </div>
+        <div class="mt-5 space-y-2">
+          <label class="flex items-center gap-3 cursor-pointer text-sm"><input type="checkbox" data-bind-check="showCountdown" class="w-5 h-5 accent-[#8c6b3e]"> Bật đếm ngược tới ngày cưới</label>
+          <label class="flex items-center gap-3 cursor-pointer text-sm"><input type="checkbox" data-bind-check="showSchedule" class="w-5 h-5 accent-[#8c6b3e]"> Bật lịch trình</label>
+          <label class="flex items-center gap-3 cursor-pointer text-sm"><input type="checkbox" data-bind-check="showStory" class="w-5 h-5 accent-[#8c6b3e]"> Bật câu chuyện tình yêu</label>
+          <label class="flex items-center gap-3 cursor-pointer text-sm"><input type="checkbox" data-bind-check="showAlbum" class="w-5 h-5 accent-[#8c6b3e]"> Bật album ảnh</label>
+          <label class="flex items-center gap-3 cursor-pointer text-sm"><input type="checkbox" data-bind-check="showGift" class="w-5 h-5 accent-[#8c6b3e]"> Bật mừng cưới &amp; QR ngân hàng</label>
+          <label class="flex items-center gap-3 cursor-pointer text-sm"><input type="checkbox" data-bind-check="showRsvp" class="w-5 h-5 accent-[#8c6b3e]"> Bật RSVP &amp; sổ lưu bút (gửi thật về Google Sheet / Formspree nếu đã cấu hình ở mục 9, ngược lại chỉ lưu trên máy khách)</label>
+        </div>
+      </section>
+
+      <section class="bg-white rounded-2xl border border-stone-200 p-5">
+        <h2 class="font-serif text-xl font-bold mb-1">9 · Nhận RSVP / Lời chúc</h2>
+        <p class="text-sm text-stone-500 mb-4">Thiệp xuất ra là web tĩnh, không có database riêng — muốn nhận được RSVP thật của khách thì phải chọn một nơi nhận bên dưới. Hướng dẫn từng bước xem <b>docs/RSVP.md</b>.</p>
+        <div class="space-y-2 mb-4" role="radiogroup" aria-label="Chế độ nhận RSVP">
+          <label class="flex items-start gap-3 cursor-pointer text-sm border border-stone-200 rounded-xl p-3">
+            <input type="radio" name="rsvpMode" value="apps-script" class="w-5 h-5 accent-[#8c6b3e] mt-0.5">
+            <span><b>Google Apps Script → Google Sheet</b> (khuyên dùng)<br><span class="text-stone-500">Khách gửi lời chúc, Apps Script ghi thẳng vào sheet 5_RSVP_KHACH_MOI của file Sheet mẫu <i>mau-google-sheet-thiep-cuoi</i>. Miễn phí, không giới hạn.</span></span>
+          </label>
+          <label class="flex items-start gap-3 cursor-pointer text-sm border border-stone-200 rounded-xl p-3">
+            <input type="radio" name="rsvpMode" value="formspree" class="w-5 h-5 accent-[#8c6b3e] mt-0.5">
+            <span><b>Formspree</b> (thay thế, không cần Sheet)<br><span class="text-stone-500">Khách gửi lời chúc, Formspree chuyển tiếp về email của bạn. Cần tạo form miễn phí trên formspree.io.</span></span>
+          </label>
+          <label class="flex items-start gap-3 cursor-pointer text-sm border border-stone-200 rounded-xl p-3">
+            <input type="radio" name="rsvpMode" value="local" class="w-5 h-5 accent-[#8c6b3e] mt-0.5">
+            <span><b>Chỉ lưu trên máy khách</b> (mặc định)<br><span class="text-stone-500">Khách vẫn thấy lời chúc của mình ngay trên thiệp, nhưng cô dâu chú rể không nhận được — chỉ dùng khi chưa kịp cấu hình 2 cách trên.</span></span>
+          </label>
+        </div>
+        <div class="field"><label>Apps Script Web App URL (dạng https://script.google.com/macros/s/…/exec)</label><input id="rsvpAppsScriptUrl" type="url" placeholder="Dán link /exec sau khi Deploy Web App — để trống nếu chưa có" autocomplete="off"></div>
+        <div class="field"><label>Formspree endpoint (dạng https://formspree.io/f/xxxx)</label><input id="rsvpFormspreeUrl" type="url" placeholder="Dán endpoint Formspree — để trống nếu không dùng" autocomplete="off"></div>
+        <p id="rsvpHint" class="text-xs text-stone-500 mt-2"></p>
+        <p class="text-xs text-stone-500">Lưu ý: thiệp xuất dùng <b>fetch no-cors</b> khi gửi về Apps Script nên không đọc được phản hồi — thiệp chỉ báo “đang ghi vào Sheet” khi gửi đi không lỗi mạng. Luôn lưu thêm 1 bản trên máy khách để khách thấy lời chúc ngay.</p>
+      </section>
+
+      <section class="bg-white rounded-2xl border border-stone-200 p-5">
+        <h2 class="font-serif text-xl font-bold mb-1">10 · Xuất bản cho khách (Push GitHub)</h2>
+        <p class="text-sm text-stone-500 mb-4">Đẩy thiệp lên repo GitHub qua API, trả về link GitHub Pages sống ngay. Token chỉ gửi tới <b>api.github.com</b>, không gửi đi nơi nào khác.</p>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="field"><label>GitHub Owner</label><input id="ghOwner" autocomplete="off"></div>
+          <div class="field"><label>Repo</label><input id="ghRepo" value="wedding-card-builder"></div>
+          <div class="field"><label>Branch</label><input id="ghBranch" value="main"></div>
+          <div class="field"><label>Thư mục đích</label><input value="khach-hang/&lt;slug&gt;/index.html" disabled></div>
+        </div>
+        <div class="field mt-3"><label>Tên miền tùy chỉnh (Custom Domain)</label><input id="ghDomain" placeholder="thiepcuoionline.me — để trống nếu dùng github.io" autocomplete="off"></div>
+        <p class="text-xs text-stone-500 -mt-1 mb-3">Nếu đã nhập tên miền, link thiệp trả về sẽ dùng tên miền đó và Builder tự ghi file <b>CNAME</b> ở thư mục gốc của repo. Mở Builder ngay trên tên miền riêng (hoặc bản mirror pages.dev / vercel.app) thì Builder tự nhận tên miền đang mở làm link thiệp.</p>
+        <div class="field mt-3"><label>Personal Access Token</label><input id="ghToken" type="password" autocomplete="off"></div>
+        <label class="flex items-center gap-3 cursor-pointer text-sm mb-3">
+          <input id="ghSaveToken" type="checkbox" class="w-5 h-5 accent-[#8c6b3e]"> Lưu token trên máy này (localStorage)
+        </label>
+        <div class="flex flex-wrap gap-2">
+          <button id="btnPushGithub" type="button" class="px-5 py-2.5 rounded-full bg-[#8c6b3e] text-white text-sm font-bold">🚀 Xuất bản cho khách</button>
+          <button id="btnCopyPages" type="button" class="px-5 py-2.5 rounded-full border border-stone-300 bg-white text-sm font-semibold" hidden>Sao chép link Pages</button>
+          <button id="btnClearToken" type="button" class="px-4 py-2.5 rounded-full border border-red-300 text-red-600 bg-white text-sm font-semibold">Xoá token</button>
+        </div>
+        <div id="ghStatus" class="status-line" role="status"></div>
+        <p class="text-xs text-stone-500 mt-3">Token cần quyền: classic PAT với scope <b>repo</b>, hoặc fine-grained PAT với quyền <b>Contents: Read and write</b> trên repo này. Xem chi tiết trong README.md mục “Cấu hình GitHub Token”.</p>
+      </section>
+
+      <p class="text-xs text-stone-500 pb-6">Dữ liệu tự lưu trên trình duyệt này (localStorage). Xuất file HTML hoặc push GitHub sau mỗi buổi làm việc để giữ lại thành quả.</p>
+    </div>
+
+    <!-- ============ CỘT PREVIEW ============ -->
+    <div id="previewCol" class="lg:sticky lg:top-[86px]">
+      <div class="flex items-center justify-between mb-3">
+        <b class="font-serif text-xl">Xem trước thiệp</b>
+        <div class="flex items-center gap-3">
+          <span id="previewSlug" class="text-xs text-stone-500 font-mono"></span>
+          <div class="seg">
+            <button type="button" data-preview-mode="mobile" aria-pressed="true">📱 Mobile 390px</button>
+            <button type="button" data-preview-mode="desktop" aria-pressed="false">🖥 Desktop</button>
+          </div>
+        </div>
+      </div>
+      <div id="previewFrame" class="preview-frame mobile">
+        <div class="h-6 bg-[#241d16] text-[#c9a86a] text-[11px] tracking-widest flex items-center justify-center flex-none">THIỆP CƯỚI ONLINE</div>
+        <div id="previewBox" class="preview-scroll"></div>
+      </div>
+      <p class="text-center text-stone-500 text-sm mt-3">Cuộn bên trong khung để xem hết thiệp. RSVP trong khung này là bản thử.</p>
+    </div>
+
+  </div>
+</main>
+
+<div id="toast" class="toast" role="status"></div>
+
+<script>
+/* Particle Engine — hiệu ứng hạt rơi bằng HTML5 Canvas, nhẹ cho mobile.
+   - requestAnimationFrame, tối đa 36 hạt mobile / 70 hạt desktop (máy đời cũ
+     không giật; mobile tính theo màn hình <=640px HOẶC có cảm ứng).
+   - Tự dừng khi tab ẩn (visibilitychange) và khi prefers-reduced-motion.
+   - DPR cap ở 2, không resize liên tục (resize chỉ đổi lại số hạt khi
+     chuyển ngưỡng mobile/desktop).
+   - Vẽ bằng Canvas 2D, không tạo DOM node cho từng hạt, không gây lag Safari iOS.
+   Loại: sakura (hoa đào rơi), heart (trái tim bay), snow (bông tuyết), glitter (kim tuyến). */
+(function (root) {
+  "use strict";
+
+  var COLORS = {
+    sakura: ["#f9a8d4", "#f472b6", "#fbcfe8", "#fda4af"],
+    heart: ["#ef4444", "#f472b6", "#fb7185", "#e11d48"],
+    snow: ["#ffffff", "#e0f2fe", "#f8fafc"],
+    glitter: ["#facc15", "#fde68a", "#f59e0b", "#fff7cc"]
+  };
+
+  function isMobile() {
+    if (typeof window === "undefined") return false;
+    var narrow = window.matchMedia && window.matchMedia("(max-width: 640px)").matches;
+    var touch = ("ontouchstart" in window) || (navigator.maxTouchPoints > 0);
+    return !!(narrow || touch);
+  }
+  function reducedMotion() {
+    return typeof window !== "undefined" && window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+
+  function ParticleEngine(canvas, options) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext("2d");
+    this.type = (options && options.type) || "sakura";
+    this.max = (options && options.max) || (isMobile() ? 36 : 70);
+    this._mobile = isMobile();
+    this.particles = [];
+    this.running = false;
+    this.rafId = 0;
+    this.last = 0;
+    this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+    this._onResize = this.resize.bind(this);
+    this._onVisibility = this._visibility.bind(this);
+    window.addEventListener("resize", this._onResize);
+    document.addEventListener("visibilitychange", this._onVisibility);
+    this.resize();
+    this._seed();
+  }
+
+  ParticleEngine.prototype.resize = function () {
+    var rect = this.canvas.parentElement
+      ? this.canvas.parentElement.getBoundingClientRect()
+      : { width: window.innerWidth, height: window.innerHeight };
+    var w = Math.max(320, rect.width || window.innerWidth);
+    var h = Math.max(480, rect.height || window.innerHeight);
+    this.w = w; this.h = h;
+    this.canvas.width = Math.floor(w * this.dpr);
+    this.canvas.height = Math.floor(h * this.dpr);
+    this.canvas.style.width = w + "px";
+    this.canvas.style.height = h + "px";
+    this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    /* Chỉ gieo lại hạt khi chuyển ngưỡng mobile/desktop (đổi số hạt
+       36 <-> 70); resize thường (xoay máy, kéo khung preview) giữ nguyên
+       hạt đang bay để không giật. */
+    var nowMobile = isMobile();
+    if (nowMobile !== this._mobile) {
+      this._mobile = nowMobile;
+      this.max = nowMobile ? 36 : 70;
+      this._seed();
+    }
+  };
+
+  ParticleEngine.prototype._seed = function () {
+    var palette = COLORS[this.type] || COLORS.sakura;
+    this.particles = [];
+    var count = reducedMotion() ? Math.min(18, this.max) : this.max;
+    for (var i = 0; i < count; i++) {
+      this.particles.push(this._make(Math.random() * this.h));
+    }
+  };
+
+  ParticleEngine.prototype._make = function (y) {
+    var palette = COLORS[this.type] || COLORS.sakura;
+    var size = this.type === "glitter" ? 2 + Math.random() * 3.5
+      : this.type === "snow" ? 2 + Math.random() * 4
+      : 6 + Math.random() * 9;
+    return {
+      x: Math.random() * this.w,
+      y: typeof y === "number" ? y : -20 - Math.random() * 40,
+      size: size,
+      vy: this.type === "heart" ? 0.35 + Math.random() * 0.7
+        : this.type === "glitter" ? 0.5 + Math.random() * 0.9
+        : 0.5 + Math.random() * 1.1,
+      vx: (Math.random() - 0.5) * 0.6,
+      sway: Math.random() * Math.PI * 2,
+      swaySpeed: 0.008 + Math.random() * 0.02,
+      rot: Math.random() * Math.PI * 2,
+      rotSpeed: (Math.random() - 0.5) * 0.02,
+      color: palette[Math.floor(Math.random() * palette.length)],
+      alpha: 0.55 + Math.random() * 0.45,
+      twinkle: Math.random() * Math.PI * 2
+    };
+  };
+
+  ParticleEngine.prototype.setType = function (type) {
+    if (!COLORS[type]) return;
+    this.type = type;
+    this._seed();
+  };
+
+  ParticleEngine.prototype.setMax = function (n) {
+    this.max = n;
+    this._seed();
+  };
+
+  ParticleEngine.prototype._visibility = function () {
+    if (document.hidden) this.stop();
+    else if (this._wantRun) this.start();
+  };
+
+  ParticleEngine.prototype.start = function () {
+    this._wantRun = true;
+    if (this.running || document.hidden) return;
+    this.running = true;
+    this.last = performance.now();
+    var self = this;
+    var tick = function (now) {
+      if (!self.running) return;
+      var dt = Math.min(50, now - self.last);
+      self.last = now;
+      self._step(dt / 16.7);
+      self._draw();
+      self.rafId = requestAnimationFrame(tick);
+    };
+    this.rafId = requestAnimationFrame(tick);
+  };
+
+  ParticleEngine.prototype.stop = function () {
+    this._wantRun = false;
+    this.running = false;
+    if (this.rafId) cancelAnimationFrame(this.rafId);
+    this.rafId = 0;
+    if (this.ctx) this.ctx.clearRect(0, 0, this.w, this.h);
+  };
+
+  ParticleEngine.prototype.destroy = function () {
+    this.stop();
+    window.removeEventListener("resize", this._onResize);
+    document.removeEventListener("visibilitychange", this._onVisibility);
+  };
+
+  ParticleEngine.prototype._step = function (k) {
+    for (var i = 0; i < this.particles.length; i++) {
+      var p = this.particles[i];
+      p.sway += p.swaySpeed * k;
+      p.y += p.vy * k;
+      p.x += p.vx * k + Math.sin(p.sway) * 0.5 * k;
+      p.rot += p.rotSpeed * k;
+      p.twinkle += 0.05 * k;
+      if (p.y > this.h + 24) {
+        var fresh = this._make();
+        fresh.x = Math.random() * this.w;
+        this.particles[i] = fresh;
+      }
+      if (p.x < -24) p.x = this.w + 20;
+      if (p.x > this.w + 24) p.x = -20;
+    }
+  };
+
+  ParticleEngine.prototype._draw = function () {
+    var ctx = this.ctx;
+    ctx.clearRect(0, 0, this.w, this.h);
+    for (var i = 0; i < this.particles.length; i++) {
+      var p = this.particles[i];
+      ctx.save();
+      ctx.globalAlpha = p.alpha * (this.type === "glitter"
+        ? 0.55 + 0.45 * Math.abs(Math.sin(p.twinkle)) : 1);
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.fillStyle = p.color;
+      if (this.type === "heart") this._heart(ctx, p.size);
+      else if (this.type === "snow") {
+        ctx.beginPath(); ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2); ctx.fill();
+      } else if (this.type === "glitter") {
+        this._star(ctx, p.size);
+      } else {
+        ctx.beginPath();
+        ctx.ellipse(0, 0, p.size / 2, p.size / 3.2, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+  };
+
+  ParticleEngine.prototype._heart = function (ctx, s) {
+    var k = s / 16;
+    ctx.beginPath();
+    ctx.moveTo(0, 5 * k);
+    ctx.bezierCurveTo(-9 * k, -3 * k, -4 * k, -9 * k, 0, -4 * k);
+    ctx.bezierCurveTo(4 * k, -9 * k, 9 * k, -3 * k, 0, 5 * k);
+    ctx.closePath(); ctx.fill();
+  };
+
+  ParticleEngine.prototype._star = function (ctx, s) {
+    ctx.beginPath();
+    ctx.moveTo(0, -s);
+    ctx.quadraticCurveTo(0, 0, s, 0);
+    ctx.quadraticCurveTo(0, 0, 0, s);
+    ctx.quadraticCurveTo(0, 0, -s, 0);
+    ctx.quadraticCurveTo(0, 0, 0, -s);
+    ctx.closePath(); ctx.fill();
+  };
+
+  root.ParticleEngine = ParticleEngine;
+  if (typeof module !== "undefined" && module.exports) module.exports = ParticleEngine;
+})(typeof window !== "undefined" ? window : globalThis);
+
+</script>
+<script>
+/* Export Engine — buildStandaloneHTML(state)
+   Đóng gói toàn bộ thiệp (giao diện + dữ liệu + CSS + JS hiệu ứng) thành
+   MỘT file index.html độc lập. File xuất chỉ dùng font hệ thống, không phụ
+   thuộc file ngoài trừ ảnh / nhạc / bản đồ do admin nhập. Chạy được khi mở
+   trực tiếp trên mobile qua Zalo / Messenger.
+   Dùng được cả trong trình duyệt (window.buildStandaloneHTML) và Node
+   (module.exports) để sinh thiệp mẫu trong thư mục examples/. */
+(function (root) {
+  "use strict";
+
+  /* ---------- tiện ích ---------- */
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+  function escAttr(s) { return esc(s); }
+  function slugify(str) {
+    var s = String(str || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    s = s.toLowerCase().replace(/đ/g, "d").replace(/[^a-z0-9]+/g, "-");
+    return s.replace(/^-+|-+$/g, "").replace(/-+/g, "-") || "thiep-cuoi";
+  }
+  function coupleSlug(state) {
+    var base = [state.groomName, state.brideName].filter(Boolean).join(" ");
+    return slugify(base) || slugify(state.slug || "") || "thiep-cuoi";
+  }
+  /* Slug dùng cho đường dẫn / tên file: ưu tiên slug admin đã nhập
+     (ví dụ minh-nhat-thai-ha), chưa có thì sinh từ tên cô dâu chú rể. */
+  function slugFor(state) {
+    if (state.slug && String(state.slug).trim()) return slugify(state.slug);
+    return coupleSlug(state);
+  }
+  function bankCode(name) {
+    var n = String(name || "").toLowerCase().replace(/\s+/g, "");
+    var map = {
+      vietcombank: "VCB", bidv: "BIDV", vietinbank: "CTG", agribank: "AGRIBANK",
+      techcombank: "TCB", mb: "MBBANK", mbbank: "MBBANK", acb: "ACB",
+      vpbank: "VPB", tpbank: "TPB", sacombank: "STB", vib: "VIB",
+      shinhan: "SHBVN", seabank: "SEABANK", hdbank: "HDBANK",
+      eximbank: "EIB", ocb: "OCB", msb: "MSB", vietcapitalbank: "VCCB"
+    };
+    if (map[n]) return map[n];
+    return String(name || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "") || "VCB";
+  }
+  function vietqrUrl(bank, account, accountName, amount, addInfo) {
+    if (!bank || !account || !accountName) return "";
+    var code = bankCode(bank);
+    var acc = String(account).replace(/\s+/g, "");
+    var q = "?amount=" + encodeURIComponent(amount || "");
+    q += "&addInfo=" + encodeURIComponent(addInfo || "");
+    q += "&accountName=" + encodeURIComponent(accountName);
+    return "https://img.vietqr.io/image/" + code + "-" + acc + "-compact2.png" + q;
+  }
+  function mapsEmbed(query) {
+    if (!query) return "";
+    return "https://maps.google.com/maps?q=" + encodeURIComponent(query) + "&output=embed";
+  }
+  function formatDateVi(iso) {
+    if (!iso) return "";
+    var parts = String(iso).split("-");
+    if (parts.length !== 3) return esc(iso);
+    var d = new Date(+parts[0], +parts[1] - 1, +parts[2]);
+    if (isNaN(d)) return esc(iso);
+    var days = ["Chủ nhật", "Thứ hai", "Thứ ba", "Thứ tư", "Thứ năm", "Thứ sáu", "Thứ bảy"];
+    return days[d.getDay()] + ", ngày " + parts[2] + " tháng " + parts[1] + " năm " + parts[0];
+  }
+  function weddingTargetISO(state) {
+    // Đếm ngược tới mốc đầu tiên của ngày cưới (lễ Vu Quy), giờ địa phương.
+    var time = state.vuQuyTime || "09:00";
+    return (state.weddingDate || "") + "T" + time + ":00";
+  }
+
+  /* ---------- 15 template: 5 gốc + 10 phong cách Hàn Quốc ---------- */
+  var TEMPLATES = {
+    traditional: {
+      id: "traditional", name: "Truyền thống đỏ vàng",
+      primary: "#B91C1C", accent: "#D4A017", bg: "#FFF7ED", surface: "#FFFFFF",
+      ink: "#3F1D1D", muted: "#8A6A5A", line: "#F0D9B5", soft: "#FDEED3",
+      heading: "'Playfair Display', Georgia, 'Times New Roman', serif",
+      body: "system-ui, -apple-system, 'Segoe UI', sans-serif",
+      frame: "double"
+    },
+    modern: {
+      id: "modern", name: "Hiện đại tối giản",
+      primary: "#111827", accent: "#0F766E", bg: "#FFFFFF", surface: "#F9FAFB",
+      ink: "#111827", muted: "#6B7280", line: "#E5E7EB", soft: "#F3F4F6",
+      heading: "system-ui, -apple-system, 'Segoe UI', sans-serif",
+      body: "system-ui, -apple-system, 'Segoe UI', sans-serif",
+      frame: "line"
+    },
+    classic: {
+      id: "classic", name: "Sang trọng cổ điển",
+      primary: "#8C6B3E", accent: "#C9A86A", bg: "#FDFBF7", surface: "#FFFFFF",
+      ink: "#2B2118", muted: "#7A6A58", line: "#E9DFCE", soft: "#F6EFE2",
+      heading: "'Playfair Display', Georgia, 'Times New Roman', serif",
+      body: "system-ui, -apple-system, 'Segoe UI', sans-serif",
+      frame: "double"
+    },
+    sakura: {
+      id: "sakura", name: "Hoa đào hồng pastel",
+      primary: "#BE185D", accent: "#F472B6", bg: "#FFF1F2", surface: "#FFFFFF",
+      ink: "#4A2C3A", muted: "#9D6B7E", line: "#FBCFE8", soft: "#FCE7F3",
+      heading: "'Playfair Display', Georgia, serif",
+      body: "system-ui, -apple-system, 'Segoe UI', sans-serif",
+      frame: "round"
+    },
+    rustic: {
+      id: "rustic", name: "Vườn xanh rustic",
+      primary: "#365314", accent: "#65A30D", bg: "#F7FEE7", surface: "#FFFFFF",
+      ink: "#1A2E05", muted: "#657A4A", line: "#D9F99D", soft: "#ECFCCB",
+      heading: "Georgia, 'Times New Roman', serif",
+      body: "system-ui, -apple-system, 'Segoe UI', sans-serif",
+      frame: "round"
+    },
+    /* --- 10 mẫu phong cách Hàn Quốc --- */
+    seoul: {
+      id: "seoul", name: "Seoul Minimalist (Tối giản Seoul)",
+      primary: "#2B2B2B", accent: "#B08D57", bg: "#FAF8F5", surface: "#FFFFFF",
+      ink: "#2B2B2B", muted: "#8A8378", line: "#E8E2D8", soft: "#F3EFE8",
+      heading: "'Cormorant Garamond', 'Playfair Display', Georgia, serif",
+      body: "system-ui, -apple-system, 'Segoe UI', sans-serif",
+      frame: "line",
+      css: ".inv .names{font-weight:500;letter-spacing:.02em}" +
+        ".inv .eyebrow{letter-spacing:.42em}" +
+        ".inv h2{font-weight:500}"
+    },
+    jeju: {
+      id: "jeju", name: "Jeju Lookbook (Tạp chí Ảnh cưới)",
+      primary: "#1F2937", accent: "#C08A5A", bg: "#FFFFFF", surface: "#F9FAFB",
+      ink: "#1F2937", muted: "#6B7280", line: "#E5E7EB", soft: "#F3F4F6",
+      heading: "'Playfair Display', Georgia, serif",
+      body: "system-ui, -apple-system, 'Segoe UI', sans-serif",
+      frame: "line",
+      css: ".inv .cover img{height:min(78vh,640px)}" +
+        ".inv .cover .veil{background:linear-gradient(transparent,rgba(0,0,0,.55) 85%);padding:120px 20px 18px}" +
+        ".inv .cover .names{color:#fff}" +
+        ".inv .cover .muted{color:#F3F4F6}" +
+        ".inv .cover .eyebrow{color:#E5E7EB}"
+    },
+    namsan: {
+      id: "namsan", name: "Namsan Blossom (Anh đào Namsan)",
+      primary: "#9D174D", accent: "#F472B6", bg: "#FDF2F4", surface: "#FFFFFF",
+      ink: "#4A2C3A", muted: "#9D6B7E", line: "#FBCFE8", soft: "#FCE7F3",
+      heading: "'Cormorant Garamond', 'Playfair Display', Georgia, serif",
+      body: "system-ui, -apple-system, 'Segoe UI', sans-serif",
+      frame: "round",
+      css: ".inv .cover img{border-radius:999px 999px 0 0}" +
+        ".inv .card{border-radius:20px}"
+    },
+    hanji: {
+      id: "hanji", name: "Hanji Warmth (Giấy Dó Hàn Quốc)",
+      primary: "#6B4A2B", accent: "#A97C50", bg: "#F5EFE3", surface: "#FFFBF2",
+      ink: "#3E2F23", muted: "#8A7561", line: "#E3D5BC", soft: "#EFE6D2",
+      heading: "Georgia, 'Times New Roman', serif",
+      body: "system-ui, -apple-system, 'Segoe UI', sans-serif",
+      frame: "double",
+      css: ".inv{background-image:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(107,74,43,.02) 3px,rgba(107,74,43,.02) 4px)}" +
+        ".inv .card{border-radius:6px}"
+    },
+    sage: {
+      id: "sage", name: "Sage & Linen (Xanh Bơ & Vải Lanh)",
+      primary: "#4D5E3A", accent: "#8A9A5B", bg: "#F4F1E6", surface: "#FFFFFF",
+      ink: "#2E3620", muted: "#7A7F63", line: "#DDE0C8", soft: "#EDEFE0",
+      heading: "'Cormorant Garamond', Georgia, serif",
+      body: "system-ui, -apple-system, 'Segoe UI', sans-serif",
+      frame: "line",
+      css: ".inv .card{border-radius:16px}" +
+        ".inv .rule{width:40px}"
+    },
+    champagne: {
+      id: "champagne", name: "Champagne Silk (Lụa Champagne)",
+      primary: "#8A6D3B", accent: "#C9A86A", bg: "#FAF6EC", surface: "#FFFFFF",
+      ink: "#3A2F1D", muted: "#97835F", line: "#EADFC2", soft: "#F5EDD8",
+      heading: "'Playfair Display', Georgia, serif",
+      body: "system-ui, -apple-system, 'Segoe UI', sans-serif",
+      frame: "double",
+      css: ".inv .names{letter-spacing:.04em}" +
+        ".inv .card{box-shadow:0 2px 10px rgba(138,109,59,.08)}"
+    },
+    polaroid: {
+      id: "polaroid", name: "Polaroid Diary (Nhật ký Polaroid)",
+      primary: "#374151", accent: "#D97706", bg: "#FDFCF8", surface: "#FFFFFF",
+      ink: "#292524", muted: "#78716C", line: "#E7E5E4", soft: "#F5F5F4",
+      heading: "'Cormorant Garamond', Georgia, serif",
+      body: "system-ui, -apple-system, 'Segoe UI', sans-serif",
+      frame: "line",
+      css: ".inv .album figure{background:#fff;padding:10px 10px 30px;box-shadow:0 4px 14px rgba(0,0,0,.14);transform:rotate(-2deg)}" +
+        ".inv .album figure:nth-child(even){transform:rotate(2deg)}" +
+        ".inv .album img{height:170px;border-radius:2px}" +
+        ".inv .album figcaption{font-family:'Great Vibes','Segoe Script',cursive;font-size:19px;color:#57534E;margin-top:8px}"
+    },
+    midnight: {
+      id: "midnight", name: "Midnight Candle (Tiệc tối Ánh nến)",
+      primary: "#E3C98F", accent: "#C9A86A", bg: "#211D1A", surface: "#2C2620",
+      ink: "#F3EDE3", muted: "#B4A894", line: "#4A4238", soft: "#332C25",
+      heading: "'Cormorant Garamond', 'Playfair Display', Georgia, serif",
+      body: "system-ui, -apple-system, 'Segoe UI', sans-serif",
+      frame: "line",
+      css: ".inv .btn{color:#211D1A}" +
+        ".inv .btn.ghost{color:#E3C98F}" +
+        ".inv .music-btn.playing{color:#211D1A}"
+    },
+    lavender: {
+      id: "lavender", name: "Lavender Mist (Sương tím Oải hương)",
+      primary: "#6D28D9", accent: "#A78BFA", bg: "#F5F3FA", surface: "#FFFFFF",
+      ink: "#3B2D4D", muted: "#8B7FA3", line: "#E4DFF2", soft: "#EDE9F7",
+      heading: "'Cormorant Garamond', 'Playfair Display', Georgia, serif",
+      body: "system-ui, -apple-system, 'Segoe UI', sans-serif",
+      frame: "round",
+      css: ".inv .card{border-radius:18px}" +
+        ".inv .count div{border-radius:16px}"
+    },
+    editorial: {
+      id: "editorial", name: "Modern Editorial (Nghệ thuật Chữ Hàn)",
+      primary: "#111111", accent: "#B45309", bg: "#FFFFFF", surface: "#FFFFFF",
+      ink: "#111111", muted: "#6B7280", line: "#E5E7EB", soft: "#F9FAFB",
+      heading: "'Cormorant Garamond', Georgia, serif",
+      body: "system-ui, -apple-system, 'Segoe UI', sans-serif",
+      frame: "line",
+      css: ".inv .names{font-size:clamp(38px,11vw,60px);letter-spacing:-.01em;text-transform:uppercase}" +
+        ".inv h2{letter-spacing:.18em;text-transform:uppercase;font-size:18px}" +
+        ".inv .tl .dot{display:none}" +
+        ".inv .tl{border-left:2px solid #111;padding-left:14px}"
+    }
+  };
+
+  /* ---------- CSS của thiệp (dùng chung cho preview + file xuất) ---------- */
+  function templateCSS(t) {
+    var frameBorder = t.frame === "double"
+      ? "border:3px double " + t.accent + ";"
+      : t.frame === "round"
+      ? "border:1px solid " + t.line + ";border-radius:22px;"
+      : "border:1px solid " + t.line + ";";
+    return [
+      "*{box-sizing:border-box}",
+      "body{margin:0;font-family:" + t.body + ";background:" + t.bg + ";color:" + t.ink + ";line-height:1.6}",
+      ".inv{max-width:640px;margin:0 auto;background:" + t.bg + ";position:relative;overflow:hidden}",
+      ".inv canvas.fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:3}",
+      ".inv .cover{position:relative;text-align:center}",
+      ".inv .cover img{width:100%;height:min(62vh,480px);object-fit:cover;display:block}",
+      ".inv .cover .veil{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(transparent," + t.bg + " 88%);padding:70px 20px 8px}",
+      ".inv .eyebrow{letter-spacing:.28em;text-transform:uppercase;font-size:11px;color:" + t.muted + "}",
+      ".inv .names{font-family:" + t.heading + ";font-size:clamp(30px,8vw,44px);font-weight:700;line-height:1.15;color:" + t.primary + ";margin:6px 0}",
+      ".inv .names .amp{color:" + t.accent + ";font-style:italic}",
+      ".inv section{padding:26px 22px 8px;text-align:center;position:relative;z-index:1}",
+      ".inv h2{font-family:" + t.heading + ";font-size:24px;color:" + t.primary + ";margin:0 0 6px}",
+      ".inv .rule{width:56px;height:2px;background:" + t.accent + ";margin:12px auto}",
+      ".inv .muted{color:" + t.muted + ";font-size:14px}",
+      ".inv .card{" + frameBorder + "background:" + t.surface + ";border-radius:14px;padding:16px;margin:12px 0;text-align:left}",
+      ".inv .card b{color:" + t.primary + "}",
+      ".inv .count{display:flex;gap:8px;justify-content:center;margin:14px 0 4px}",
+      ".inv .count div{background:" + t.soft + ";border:1px solid " + t.line + ";border-radius:12px;min-width:64px;padding:10px 4px}",
+      ".inv .count b{display:block;font-size:24px;color:" + t.primary + ";font-family:" + t.heading + "}",
+      ".inv .count span{font-size:11px;color:" + t.muted + "}",
+      ".inv .tl{display:flex;gap:12px;text-align:left;margin:14px 0;align-items:flex-start}",
+      ".inv .tl .time{font-family:" + t.heading + ";font-weight:700;color:" + t.primary + ";min-width:54px}",
+      ".inv .tl .dot{width:11px;height:11px;border-radius:50%;background:" + t.accent + ";margin-top:6px;flex:none}",
+      ".inv .story{text-align:left;border-left:2px solid " + t.line + ";margin:0 0 16px 6px;padding:0 0 4px 16px;position:relative}",
+      ".inv .story:before{content:'';position:absolute;left:-6px;top:5px;width:10px;height:10px;border-radius:50%;background:" + t.primary + "}",
+      ".inv .story b{color:" + t.primary + "}",
+      ".inv .album{display:grid;grid-template-columns:1fr 1fr;gap:8px}",
+      ".inv .album figure{margin:0}",
+      ".inv .album img{width:100%;height:150px;object-fit:cover;border-radius:12px;display:block}",
+      ".inv .album figcaption{font-size:12px;color:" + t.muted + ";margin-top:4px}",
+      ".inv .qr{display:block;max-width:220px;width:100%;margin:10px auto 4px;border:1px solid " + t.line + ";border-radius:12px}",
+      ".inv .bank{text-align:center}",
+      ".inv .btn{display:inline-block;background:" + t.primary + ";color:#fff;border:0;border-radius:999px;padding:11px 20px;font-weight:700;cursor:pointer;font-size:15px;text-decoration:none}",
+      ".inv .btn.ghost{background:transparent;color:" + t.primary + ";border:1px solid " + t.primary + "}",
+      ".inv .btn.small{padding:8px 14px;font-size:13px}",
+      ".inv input,.inv select,.inv textarea{width:100%;border:1px solid " + t.line + ";border-radius:10px;padding:10px 12px;background:" + t.surface + ";color:" + t.ink + ";font:inherit;font-size:15px}",
+      ".inv label{display:block;font-size:13px;font-weight:600;margin:12px 0 4px;text-align:left}",
+      ".inv .wish{background:" + t.surface + ";border:1px solid " + t.line + ";border-radius:12px;padding:12px 14px;margin:10px 0;text-align:left}",
+      ".inv .wish b{color:" + t.primary + "}",
+      ".inv .wish small{color:" + t.muted + "}",
+      ".inv iframe.map{width:100%;height:260px;border:0;border-radius:12px;margin-top:10px}",
+      ".inv .music-btn{position:fixed;right:14px;bottom:16px;z-index:10;width:48px;height:48px;border-radius:50%;border:1px solid " + t.line + ";background:" + t.surface + ";color:" + t.primary + ";font-size:20px;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.18)}",
+      ".inv .music-btn.playing{background:" + t.primary + ";color:#fff}",
+      ".inv .warn{background:#FEF3C7;border:1px solid #F59E0B;color:#92400E;border-radius:12px;padding:12px 14px;font-size:13px;text-align:left;margin:12px 0}",
+      ".inv .rsvp-status{border-radius:12px;padding:12px 14px;font-size:14px;text-align:left;margin:12px 0;display:none}",
+      ".inv .rsvp-status.show{display:block}",
+      ".inv .rsvp-status.sending{background:" + t.soft + ";border:1px solid " + t.line + "}",
+      ".inv .rsvp-status.ok{background:#ECFDF5;border:1px solid #34D399;color:#065F46}",
+      ".inv .rsvp-status.err{background:#FEF2F2;border:1px solid #FCA5A5;color:#991B1B}",
+      ".inv footer{padding:26px 22px 40px;text-align:center;color:" + t.muted + ";font-size:13px}",
+      "@media (prefers-reduced-motion:reduce){.inv canvas.fx{display:none}}"
+    ].join("\n") + (t.css ? "\n" + t.css : "");
+  }
+
+  /* ---------- Nội dung thiệp (dùng chung preview + file xuất) ---------- */
+  function renderCardHTML(state) {
+    var t = TEMPLATES[state.template] || TEMPLATES.classic;
+    var slug = slugFor(state);
+    var parts = [];
+
+    parts.push('<canvas class="fx" id="fxCanvas" aria-hidden="true"></canvas>');
+
+    // Bìa
+    var cover = state.coverUrl
+      ? '<img src="' + escAttr(state.coverUrl) + '" alt="Ảnh cưới ' + escAttr(state.groomName) + " &amp; " + escAttr(state.brideName) + '">'
+      : "";
+    parts.push('<div class="cover">' + cover +
+      '<div class="veil"><div class="eyebrow">Thiệp mời cưới</div>' +
+      '<div class="names">' + esc(state.groomName) + ' <span class="amp">&amp;</span> ' + esc(state.brideName) + "</div>" +
+      '<div class="muted">' + esc(formatDateVi(state.weddingDate)) + "</div>" +
+      "</div></div>");
+
+    // Đếm ngược
+    if (state.showCountdown) {
+      parts.push('<section><h2>Đếm ngược tới ngày cưới</h2><div class="rule"></div>' +
+        '<div class="count" data-countdown data-target="' + escAttr(weddingTargetISO(state)) + '">' +
+        '<div><b data-cd="d">--</b><span>Ngày</span></div>' +
+        '<div><b data-cd="h">--</b><span>Giờ</span></div>' +
+        '<div><b data-cd="m">--</b><span>Phút</span></div>' +
+        '<div><b data-cd="s">--</b><span>Giây</span></div>' +
+        "</div>" +
+        '<p class="muted">Hạn xác nhận tham dự: ' + esc(formatDateVi(state.rsvpDeadline)) + "</p></section>");
+    }
+
+    // Lời ngỏ + phụ huynh
+    parts.push("<section><h2>Trân trọng kính mời</h2><div class=\"rule\"></div>" +
+      "<p>" + esc(state.inviteText) + "</p>" +
+      '<div class="card"><b>Chú rể ' + esc(state.groomName) + "</b><br>Con ông " + esc(state.groomFather) + " &amp; bà " + esc(state.groomMother) +
+      (state.groomPhone ? '<br>SĐT: <a href="tel:' + escAttr(state.groomPhone.replace(/\s+/g, "")) + '">' + esc(state.groomPhone) + "</a>" : "") + "</div>" +
+      '<div class="card"><b>Cô dâu ' + esc(state.brideName) + "</b><br>Con ông " + esc(state.brideFather) + " &amp; bà " + esc(state.brideMother) +
+      (state.bridePhone ? '<br>SĐT: <a href="tel:' + escAttr(state.bridePhone.replace(/\s+/g, "")) + '">' + esc(state.bridePhone) + "</a>" : "") + "</div>" +
+      (state.dressCode ? '<p class="muted">Dress code: ' + esc(state.dressCode) + "</p>" : "") +
+      "</section>");
+
+    // Sự kiện
+    parts.push("<section><h2>Thời gian &amp; Địa điểm</h2><div class=\"rule\"></div>" +
+      '<div class="card"><b>Lễ Vu Quy — ' + esc(state.vuQuyTime) + "</b><br>" + esc(state.vuQuyPlace) + "<br>" + esc(state.vuQuyAddress) +
+      (state.vuQuyAddress ? '<iframe class="map" loading="lazy" title="Bản đồ lễ Vu Quy" src="' + escAttr(mapsEmbed(state.vuQuyAddress)) + '"></iframe>' : "") + "</div>" +
+      '<div class="card"><b>Tiệc cưới — Đón khách ' + esc(state.partyWelcome) + " · Khai tiệc " + esc(state.partyStart) + "</b><br>" + esc(state.partyPlace) + "<br>" + esc(state.partyAddress) +
+      (state.partyAddress ? '<iframe class="map" loading="lazy" title="Bản đồ tiệc cưới" src="' + escAttr(mapsEmbed(state.partyPlace + ", " + state.partyAddress)) + '"></iframe>' : "") + "</div>" +
+      "</section>");
+
+    // Lịch trình
+    if (state.showSchedule && state.schedule && state.schedule.length) {
+      var tl = state.schedule.map(function (it) {
+        return '<div class="tl"><span class="time">' + esc(it.time) + '</span><span class="dot"></span><div><b>' + esc(it.title) + "</b><br><span class=\"muted\">" + esc(it.desc) + "</span></div></div>";
+      }).join("");
+      parts.push("<section><h2>Lịch trình ngày cưới</h2><div class=\"rule\"></div>" + tl + "</section>");
+    }
+
+    // Câu chuyện
+    if (state.showStory && state.story && state.story.length) {
+      var st = state.story.map(function (it) {
+        return '<div class="story"><small class="muted">' + esc(it.date) + "</small><br><b>" + esc(it.title) + "</b><br>" + esc(it.desc) + "</div>";
+      }).join("");
+      parts.push("<section><h2>Câu chuyện tình yêu</h2><div class=\"rule\"></div>" + st + "</section>");
+    }
+
+    // Album
+    if (state.showAlbum && state.album && state.album.length) {
+      var photos = state.album.filter(function (a) { return a.url; });
+      if (photos.length) {
+        var al = photos.map(function (a) {
+          return '<figure><img loading="lazy" src="' + escAttr(a.url) + '" alt="' + escAttr(a.caption || "Ảnh cưới") + '">' +
+            (a.caption ? "<figcaption>" + esc(a.caption) + "</figcaption>" : "") + "</figure>";
+        }).join("");
+        parts.push('<section><h2>Album ảnh cưới</h2><div class="rule"></div><div class="album">' + al + "</div></section>");
+      }
+    }
+
+    // Mừng cưới / VietQR
+    if (state.showGift) {
+      var gift = '<section><h2>Mừng cưới</h2><div class="rule"></div>' +
+        '<p class="muted">Quý khách ở xa có thể mừng cưới qua chuyển khoản — mã QR VietQR quét là ra đúng số tài khoản.</p>';
+      gift += giftBlock(state, "groom") + giftBlock(state, "bride");
+      gift += "</section>";
+      parts.push(gift);
+    }
+
+    // RSVP + sổ lưu bút — gửi thật về Apps Script / Formspree nếu admin
+    // đã cấu hình, ngược lại chỉ lưu local và báo rõ (không báo thành công giả).
+    if (state.showRsvp) {
+      var rsvpCfg = state.rsvp || { mode: "local", appsScriptUrl: "", formspreeUrl: "" };
+      var rsvpMode = rsvpCfg.mode || "local";
+      var rsvpIntro = "Vui lòng xác nhận trước ngày " + esc(formatDateVi(state.rsvpDeadline)) + ".";
+      var rsvpWarn = "";
+      if (rsvpMode === "apps-script") {
+        if (rsvpCfg.appsScriptUrl) rsvpIntro += " Lời chúc của bạn sẽ được gửi về Google Sheet của cô dâu chú rể.";
+        else rsvpWarn = '<div class="warn"><b>Chưa cấu hình nơi nhận RSVP:</b> lời chúc của bạn tạm thời chỉ lưu trên máy này. Cô dâu chú rể vui lòng dán Apps Script URL trong Builder rồi xuất lại thiệp.</div>';
+      } else if (rsvpMode === "formspree") {
+        if (rsvpCfg.formspreeUrl) rsvpIntro += " Lời chúc của bạn sẽ được gửi tới cô dâu chú rể.";
+        else rsvpWarn = '<div class="warn"><b>Chưa cấu hình nơi nhận RSVP:</b> lời chúc của bạn tạm thời chỉ lưu trên máy này. Cô dâu chú rể vui lòng dán Formspree endpoint trong Builder rồi xuất lại thiệp.</div>';
+      } else {
+        rsvpIntro += " Thông tin của bạn chỉ lưu trên trình duyệt này.";
+      }
+      parts.push('<section><h2>Xác nhận tham dự (RSVP)</h2><div class="rule"></div>' +
+        '<p class="muted">' + rsvpIntro + "</p>" + rsvpWarn +
+        '<form data-rsvp-form>' +
+        '<label for="rsvpName">Họ tên của bạn</label><input id="rsvpName" name="name" required autocomplete="name">' +
+        '<label for="rsvpPhone">Số điện thoại (không bắt buộc)</label><input id="rsvpPhone" name="phone" type="tel" autocomplete="tel">' +
+        '<label for="rsvpAttend">Bạn có tham dự không?</label><select id="rsvpAttend" name="attend"><option value="Tham dự">Tham dự</option><option value="Không tham dự được">Không tham dự được</option></select>' +
+        '<label for="rsvpCount">Số người đi cùng</label><input id="rsvpCount" name="count" type="number" min="0" max="10" value="0">' +
+        '<label for="rsvpMsg">Lời chúc tới cô dâu chú rể</label><textarea id="rsvpMsg" name="message" rows="3"></textarea>' +
+        '<button class="btn" type="submit" style="width:100%;margin-top:16px">Gửi xác nhận &amp; lời chúc</button>' +
+        "</form>" +
+        '<p class="rsvp-status" data-rsvp-status role="status"></p>' +
+        '<div data-wish-list style="margin-top:18px"></div>' +
+        "</section>");
+    }
+
+    parts.push("<footer>Thiệp cưới online của " + esc(state.groomName) + " &amp; " + esc(state.brideName) +
+      " · " + esc(formatDateVi(state.weddingDate)) + "</footer>");
+
+    return '<div class="inv" data-slug="' + escAttr(slug) + '">' + parts.join("") + "</div>";
+  }
+
+  function giftBlock(state, who) {
+    var bank = state[who + "Bank"], acc = state[who + "Account"], name = state[who + "AccountName"];
+    if (!bank || !acc || !name) return "";
+    var label = who === "groom" ? "Chú rể" : "Cô dâu";
+    var qr = vietqrUrl(bank, acc, name, state.giftAmount, state.giftNote || "Mung cuoi");
+    var html = '<div class="card bank"><b>' + label + " — " + esc(bank) + "</b><br>" +
+      "Chủ TK: " + esc(name) + "<br>STK: <b data-stk=\"" + escAttr(acc) + "\">" + esc(acc) + "</b> " +
+      '<button class="btn ghost small" type="button" data-copy-stk="' + escAttr(acc) + '">Sao chép STK</button>';
+    if (qr) html += '<img class="qr" loading="lazy" src="' + escAttr(qr) + '" alt="Mã QR VietQR ' + escAttr(label) + '">';
+    html += "</div>";
+    return html;
+  }
+
+  /* ---------- JS chạy trong file thiệp xuất (độc lập, không phụ thuộc ngoài) ---------- */
+  function standaloneJS(state) {
+    var cfg = {
+      slug: slugFor(state),
+      target: weddingTargetISO(state),
+      particlesEnabled: !!state.particlesEnabled,
+      particleType: state.particleType || "sakura",
+      musicUrl: state.musicUrl || "",
+      /* Cấu hình nơi nhận RSVP — admin nhập trong Builder, KHÔNG bịa URL.
+         mode: "apps-script" | "formspree" | "local" (mặc định local). */
+      rsvp: state.rsvp || { mode: "local", appsScriptUrl: "", formspreeUrl: "" }
+    };
+    return "(function(){\n" +
+      "var CFG=" + JSON.stringify(cfg) + ";\n" +
+      "var $=function(s,c){return (c||document).querySelector(s)};\n" +
+      "var $$=function(s,c){return Array.prototype.slice.call((c||document).querySelectorAll(s))};\n" +
+      /* Countdown — giờ địa phương, mốc Asia/Ho_Chi_Minh khi khách ở Việt Nam */
+      "function pad(n){return String(n).padStart(2,'0')}\n" +
+      "function tick(){\n" +
+      "  var box=$('[data-countdown]'); if(!box) return;\n" +
+      "  var target=new Date(box.getAttribute('data-target'));\n" +
+      "  var diff=target-new Date();\n" +
+      "  if(diff<=0){ $$('[data-cd]',box).forEach(function(el){el.textContent='0'}); return; }\n" +
+      "  var d=Math.floor(diff/86400000), h=Math.floor(diff%86400000/3600000),\n" +
+      "      m=Math.floor(diff%3600000/60000), s=Math.floor(diff%60000/1000);\n" +
+      "  var map={d:d,h:pad(h),m:pad(m),s:pad(s)};\n" +
+      "  $$('[data-cd]',box).forEach(function(el){ el.textContent=map[el.getAttribute('data-cd')] });\n" +
+      "}\n" +
+      "tick(); setInterval(tick,1000);\n" +
+      /* Copy STK */
+      "$$('[data-copy-stk]').forEach(function(btn){\n" +
+      "  btn.addEventListener('click',function(){\n" +
+      "    var v=btn.getAttribute('data-copy-stk');\n" +
+      "    function done(){ btn.textContent='Đã sao chép'; setTimeout(function(){btn.textContent='Sao chép STK'},2000); }\n" +
+      "    if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(v).then(done); }\n" +
+      "    else { var ta=document.createElement('textarea'); ta.value=v; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy'); done();}catch(e){} ta.remove(); }\n" +
+      "  });\n" +
+      "});\n" +
+      /* Nhạc nền — KHÔNG autoplay có tiếng: Safari iOS và Chrome Android
+         bắt buộc phải có một lần chạm của người dùng mới cho phát tiếng.
+         Vì vậy nhạc chỉ phát khi khách chạm nút ♪; nếu trình duyệt chặn
+         (promise play() bị reject, vd NotAllowedError) thì nút quay về
+         trạng thái Tắt và không báo phát thành công giả. */
+      "if(CFG.musicUrl){\n" +
+      "  /* KHONG autoplay co tieng: Safari iOS / Chrome Android chi cho phat tieng sau 1 lan cham — nhac chi phat khi khach cham nut. */\n" +
+      "  var audio=document.createElement('audio'); audio.src=CFG.musicUrl; audio.loop=true; audio.preload='metadata';\n" +
+      "  audio.addEventListener('error',function(){ btn.classList.remove('playing'); btn.textContent='♪'; btn.title='Không tải được file nhạc từ link này — kiểm tra lại link MP3.'; });\n" +
+      "  var btn=document.createElement('button'); btn.className='music-btn'; btn.type='button'; btn.textContent='♪';\n" +
+      "  btn.setAttribute('aria-label','Bật / tắt nhạc nền — chạm để phát nhạc');\n" +
+      "  btn.title='Chạm để bật nhạc (trình duyệt không cho tự phát nhạc có tiếng)';\n" +
+      "  btn.addEventListener('click',function(){\n" +
+      "    if(audio.paused){ audio.play().then(function(){btn.classList.add('playing');btn.textContent='❚❚';}).catch(function(err){ btn.classList.remove('playing'); btn.textContent='♪'; btn.title='Không phát được nhạc — kiểm tra lại link MP3 ('+(err&&err.name?err.name:'')+')'; }); }\n" +
+      "    else { audio.pause(); btn.classList.remove('playing'); btn.textContent='♪'; }\n" +
+      "  });\n" +
+      "  document.body.appendChild(btn);\n" +
+      "}\n" +
+      /* Particles — bản gọn nhẹ, cùng logic với assets/js/particles.js */
+      "var canvas=$('#fxCanvas');\n" +
+      "if(canvas && CFG.particlesEnabled && !window.matchMedia('(prefers-reduced-motion: reduce)').matches){\n" +
+      "  var ctx=canvas.getContext('2d');\n" +
+      "  var PAL={sakura:['#f9a8d4','#f472b6','#fbcfe8','#fda4af'],heart:['#ef4444','#f472b6','#fb7185','#e11d48'],snow:['#ffffff','#e0f2fe','#f8fafc'],glitter:['#facc15','#fde68a','#f59e0b','#fff7cc']};\n" +
+      "  var colors=PAL[CFG.particleType]||PAL.sakura;\n" +
+      "  var max=(window.innerWidth<=640||('ontouchstart' in window)||navigator.maxTouchPoints>0)?36:70, parts=[], W=0, H=0, raf=0, running=false;\n" +
+      "  function size(){ var r=canvas.parentElement.getBoundingClientRect(); W=r.width; H=r.height;\n" +
+      "    var d=Math.min(window.devicePixelRatio||1,2); canvas.width=W*d; canvas.height=H*d; ctx.setTransform(d,0,0,d,0,0); }\n" +
+      "  function mk(y){ return {x:Math.random()*W, y:(typeof y==='number'?y:-20-Math.random()*40), s:CFG.particleType==='glitter'?2+Math.random()*3.5:CFG.particleType==='snow'?2+Math.random()*4:6+Math.random()*9, vy:CFG.particleType==='heart'?0.35+Math.random()*0.7:0.5+Math.random()*1.1, vx:(Math.random()-0.5)*0.6, rot:Math.random()*6.28, rs:(Math.random()-0.5)*0.02, c:colors[Math.floor(Math.random()*colors.length)], a:0.55+Math.random()*0.45, tw:Math.random()*6.28}; }\n" +
+      "  function seed(){ size(); parts=[]; for(var i=0;i<max;i++) parts.push(mk(Math.random()*H)); }\n" +
+      "  function draw(){ ctx.clearRect(0,0,W,H); parts.forEach(function(p){ ctx.save(); ctx.globalAlpha=p.a; ctx.translate(p.x,p.y); ctx.rotate(p.rot); ctx.fillStyle=p.c; if(CFG.particleType==='heart'){ var k=p.s/16; ctx.beginPath(); ctx.moveTo(0,5*k); ctx.bezierCurveTo(-9*k,-3*k,-4*k,-9*k,0,-4*k); ctx.bezierCurveTo(4*k,-9*k,9*k,-3*k,0,5*k); ctx.closePath(); ctx.fill(); } else if(CFG.particleType==='snow'){ ctx.beginPath(); ctx.arc(0,0,p.s/2,0,6.29); ctx.fill(); } else if(CFG.particleType==='glitter'){ ctx.beginPath(); ctx.moveTo(0,-p.s); ctx.quadraticCurveTo(0,0,p.s,0); ctx.quadraticCurveTo(0,0,0,p.s); ctx.quadraticCurveTo(0,0,-p.s,0); ctx.quadraticCurveTo(0,0,0,-p.s); ctx.closePath(); ctx.fill(); } else { ctx.beginPath(); ctx.ellipse(0,0,p.s/2,p.s/3.2,0,0,6.29); ctx.fill(); } ctx.restore(); }); }\n" +
+      "  function loop(){ if(!running) return; parts.forEach(function(p,i){ p.y+=p.vy; p.x+=p.vx+Math.sin(p.tw+=0.02)*0.4; p.rot+=p.rs; if(p.y>H+24){ parts[i]=mk(); } }); draw(); raf=requestAnimationFrame(loop); }\n" +
+      "  function start(){ if(running||document.hidden) return; running=true; raf=requestAnimationFrame(loop); }\n" +
+      "  function stop(){ running=false; cancelAnimationFrame(raf); ctx.clearRect(0,0,W,H); }\n" +
+      "  seed(); start();\n" +
+      "  var rzT=0;\n" +
+      "  window.addEventListener('resize',function(){ clearTimeout(rzT); rzT=setTimeout(function(){ var m=(window.innerWidth<=640||('ontouchstart' in window)||navigator.maxTouchPoints>0)?36:70; if(m!==max){ max=m; } seed(); },200); });\n" +
+      "  document.addEventListener('visibilitychange',function(){ document.hidden?stop():start(); });\n" +
+      "}\n" +
+      /* RSVP + sổ lưu bút — GỬI THẬT về nơi admin đã cấu hình, đồng thời
+         luôn lưu 1 bản localStorage để khách thấy lời chúc của mình ngay.
+         - Apps Script: POST text/plain + mode no-cors tới Web App URL
+           (/exec). Vì no-cors nên KHÔNG đọc được response — fetch resolve
+           là coi như đã gửi đi, báo "đang ghi vào Sheet", không khẳng định
+           đã ghi xong. Payload theo đúng doPost() trong docs/apps-script-full.gs:
+           {name, phone, attending, guests, wish} (kèm thêm các khóa tiếng
+           Việt ten/thamDu/soKhach/loiChuc/thoiGian cho tương thích).
+         - Formspree: POST JSON, đọc được response.ok nên báo chắc chắn hơn.
+         - mode "local" hoặc URL trống: KHÔNG báo thành công giả — chỉ lưu
+           local và báo rõ là chưa cấu hình nơi nhận. */
+      "var KEY='wedding-rsvp-'+CFG.slug;\n" +
+      "function escH(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;'); }\n" +
+      "function loadWishes(){ try{ return JSON.parse(localStorage.getItem(KEY)||'[]'); }catch(e){ return []; } }\n" +
+      "function saveWish(w){ var list=loadWishes(); list.unshift(w); try{ localStorage.setItem(KEY, JSON.stringify(list)); }catch(e){} }\n" +
+      "function renderWishes(){ var box=$('[data-wish-list]'); if(!box) return; var list=loadWishes();\n" +
+      "  if(!list.length){ box.innerHTML=''; return; }\n" +
+      "  box.innerHTML='<h3 style=\"font-size:18px\">Lời chúc đã gửi</h3>'+list.map(function(w){ return '<div class=\"wish\"><b>'+escH(w.name)+'</b> <small>· '+escH(w.attend)+(w.count>0?' · '+w.count+' người đi cùng':'')+'</small><br>'+escH(w.message)+'</div>'; }).join('');\n" +
+      "}\n" +
+      "function rsvpStatus(kind,msg){ var el=$('[data-rsvp-status]'); if(!el) return; el.className='rsvp-status show '+kind; el.textContent=msg; }\n" +
+      "function sendRsvp(w){\n" +
+      "  var mode=(CFG.rsvp&&CFG.rsvp.mode)||'local';\n" +
+      "  if(mode==='apps-script'){\n" +
+      "    var url=CFG.rsvp.appsScriptUrl||'';\n" +
+      "    if(!url) return Promise.resolve({ok:false, unconfigured:true});\n" +
+      "    var body={name:w.name, phone:w.phone||'', attending:w.attend, guests:w.count, wish:w.message, ten:w.name, thamDu:w.attend, soKhach:w.count, loiChuc:w.message, thoiGian:w.at};\n" +
+      "    return fetch(url,{method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'}, body:JSON.stringify(body)}).then(function(){ return {ok:true, note:'sheet'}; });\n" +
+      "  }\n" +
+      "  if(mode==='formspree'){\n" +
+      "    var furl=CFG.rsvp.formspreeUrl||'';\n" +
+      "    if(!furl) return Promise.resolve({ok:false, unconfigured:true});\n" +
+      "    return fetch(furl,{method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'}, body:JSON.stringify({name:w.name, phone:w.phone||'', attending:w.attend, guests:w.count, message:w.message, _subject:'RSVP thiep cuoi '+CFG.slug})}).then(function(res){ return {ok:res.ok}; });\n" +
+      "  }\n" +
+      "  return Promise.resolve({ok:true, localOnly:true});\n" +
+      "}\n" +
+      "var form=$('[data-rsvp-form]');\n" +
+      "if(form){ form.addEventListener('submit',function(ev){ ev.preventDefault();\n" +
+      "  var name=form.name.value.trim(); if(!name){ form.name.focus(); return; }\n" +
+      "  var w={name:name, phone:(form.phone?form.phone.value.trim():''), attend:form.attend.value, count:+form.count.value||0, message:form.message.value.trim(), at:new Date().toISOString()};\n" +
+      "  var b=form.querySelector('button[type=submit]'); b.disabled=true; b.textContent='Đang gửi…';\n" +
+      "  rsvpStatus('sending','Đang gửi lời chúc…');\n" +
+      "  sendRsvp(w).then(function(r){\n" +
+      "    saveWish(w); form.reset(); renderWishes(); b.disabled=false; b.textContent='Gửi xác nhận & lời chúc';\n" +
+      "    if(r.unconfigured){ rsvpStatus('err','Chưa cấu hình nơi nhận RSVP — lời chúc chỉ lưu trên máy này. Cô dâu chú rể hãy dán Apps Script URL / Formspree trong Builder rồi xuất lại thiệp.'); }\n" +
+      "    else if(r.ok && r.note==='sheet'){ rsvpStatus('ok','Đã gửi — lời chúc đang được ghi vào Google Sheet của cô dâu chú rể. Cảm ơn bạn!'); }\n" +
+      "    else if(r.ok && r.localOnly){ rsvpStatus('ok','Đã lưu lời chúc trên máy này. Cảm ơn bạn!'); }\n" +
+      "    else if(r.ok){ rsvpStatus('ok','Đã nhận lời chúc của bạn. Cảm ơn bạn!'); }\n" +
+      "    else { rsvpStatus('err','Gửi chưa thành công — lời chúc đã lưu tạm trên máy này, bạn hãy thử gửi lại sau.'); }\n" +
+      "  }).catch(function(){\n" +
+      "    saveWish(w); form.reset(); renderWishes(); b.disabled=false; b.textContent='Gửi xác nhận & lời chúc';\n" +
+      "    rsvpStatus('err','Lỗi mạng — chưa gửi được tới cô dâu chú rể. Lời chúc đã lưu tạm trên máy này, bạn hãy thử gửi lại sau.');\n" +
+      "  });\n" +
+      "}); }\n" +
+      "renderWishes();\n" +
+      "})();";
+  }
+
+  function buildStandaloneHTML(state) {
+    var t = TEMPLATES[state.template] || TEMPLATES.classic;
+    var title = "Thiệp cưới " + state.groomName + " & " + state.brideName + " — " + formatDateVi(state.weddingDate);
+    var warn = "";
+    if (state.slug === "minh-nhat-thai-ha") {
+      warn = '<div class="warn"><b>DỮ LIỆU MẪU - CẦN XÁC NHẬN:</b> tên địa điểm tiệc "Nhà Hàng Crown Tiền Hải" chưa xác nhận 100% có phải Crown Palace hay không; số tài khoản cô dâu Vietcombank 376634531 chỉ có 9 chữ số, chưa xác thực. Vui lòng xác nhận với cô dâu chú rể trước khi gửi thiệp này cho khách mời.</div>';
+    }
+    var bodyHtml = renderCardHTML(state);
+    if (warn) bodyHtml = bodyHtml.replace(/^(<div class="inv"[^>]*>)/, "$1" + warn);
+    return "<!doctype html>\n<html lang=\"vi\">\n<head>\n<meta charset=\"utf-8\">\n" +
+      '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n' +
+      "<title>" + esc(title) + "</title>\n" +
+      '<meta name="description" content="' + escAttr("Thiệp cưới online của " + state.groomName + " & " + state.brideName + " — " + formatDateVi(state.weddingDate)) + '">\n' +
+      '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Cormorant+Garamond:wght@500;600&family=Great+Vibes&display=swap">\n' +
+      "<style>\n" + templateCSS(t) + "\n</style>\n</head>\n<body>\n" +
+      bodyHtml +
+      "\n<script>\n" + standaloneJS(state) + "\n<\/script>\n</body>\n</html>\n";
+  }
+
+  var api = {
+    TEMPLATES: TEMPLATES, esc: esc, slugify: slugify, coupleSlug: coupleSlug, slugFor: slugFor,
+    bankCode: bankCode, vietqrUrl: vietqrUrl, mapsEmbed: mapsEmbed,
+    formatDateVi: formatDateVi, weddingTargetISO: weddingTargetISO,
+    templateCSS: templateCSS, renderCardHTML: renderCardHTML,
+    buildStandaloneHTML: buildStandaloneHTML
+  };
+  root.WeddingExport = api;
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+})(typeof window !== "undefined" ? window : globalThis);
+
+</script>
+<script>
+/* Dữ liệu mẫu: Trần Minh Nhật & Nguyễn Thái Hà — cưới 20/12/2026.
+   CẢNH BÁO DỮ LIỆU MẪU - CẦN XÁC NHẬN trước khi gửi khách thật:
+   - Tên địa điểm tiệc "Nhà Hàng Crown Tiền Hải" trong Sheet gốc chưa xác nhận
+     100% có phải là Crown Palace hay không — cần gọi điện xác nhận với khách.
+   - Số tài khoản cô dâu Vietcombank 376634531 chỉ có 9 chữ số, chưa xác thực.
+   - Tên phụ huynh (Trần Minh A / Trần Minh B / Nguyễn Thái C / Trần Thị D),
+     số điện thoại và các mốc câu chuyện là dữ liệu mẫu trong Sheet gốc.
+   Không tự bịa thêm số tài khoản, địa chỉ chi tiết hay số điện thoại khác. */
+(function (root) {
+  var SAMPLE = {
+    groomName: "Trần Minh Nhật",
+    brideName: "Nguyễn Thái Hà",
+    groomFather: "Trần Minh A",
+    groomMother: "Trần Minh B",
+    brideFather: "Nguyễn Thái C",
+    brideMother: "Trần Thị D",
+    weddingDate: "2026-12-20",
+    rsvpDeadline: "2026-12-10",
+    groomPhone: "0967156341",
+    bridePhone: "0974565245",
+    inviteText: "Trân trọng kính mời bạn cùng gia đình tới dự lễ thành hôn của chúng mình. Sự hiện diện của bạn là niềm hạnh phúc lớn nhất trong ngày trọng đại này.",
+    coverUrl: "https://images.unsplash.com/photo-1519741497674-611481863552?w=1200&q=80&auto=format&fit=crop",
+    vuQuyTime: "09:00",
+    vuQuyPlace: "Tư gia Nhà Gái",
+    vuQuyAddress: "Phố Hùng Thắng, Tiền Hải, Thái Bình",
+    partyWelcome: "11:00",
+    partyStart: "11:30",
+    partyPlace: "Nhà Hàng Crown Tiền Hải",
+    partyAddress: "Tiền Hải, Thái Bình",
+    dressCode: "Trắng · Be · Vàng gold",
+    schedule: [
+      { time: "09:00", title: "Lễ Vu Quy", desc: "Làm lễ tại tư gia nhà gái" },
+      { time: "10:30", title: "Rước dâu", desc: "Đoàn nhà trai đón cô dâu về nhà hàng" },
+      { time: "11:00", title: "Đón khách", desc: "Đón khách & chụp ảnh tại sảnh tiệc" },
+      { time: "11:30", title: "Khai tiệc", desc: "Làm lễ trên sân khấu & khai tiệc" },
+      { time: "12:30", title: "Chụp ảnh cùng khách", desc: "Chụp ảnh lưu niệm với khách mời" }
+    ],
+    story: [
+      { date: "Mùa thu 2021", title: "Lần đầu gặp nhau", desc: "Gặp nhau lần đầu trong một buổi chiều thu." },
+      { date: "14/02/2022", title: "Chính thức yêu nhau", desc: "Ngày Valentine, hai người chính thức bắt đầu hành trình cùng nhau." },
+      { date: "20/10/2025", title: "Lời cầu hôn", desc: "Một lời cầu hôn giản dị và cái gật đầu hạnh phúc." },
+      { date: "20/12/2026", title: "Về chung một nhà", desc: "Ngày cưới — chương mới của câu chuyện bắt đầu." }
+    ],
+    album: [
+      { url: "https://images.unsplash.com/photo-1519741497674-611481863552?w=900&q=80&auto=format&fit=crop", caption: "Ngày chung đôi" },
+      { url: "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=900&q=80&auto=format&fit=crop", caption: "Khoảnh khắc yêu thương" },
+      { url: "https://images.unsplash.com/photo-1465495976277-4387d4b0b4c6?w=900&q=80&auto=format&fit=crop", caption: "Nhẫn cưới" },
+      { url: "https://images.unsplash.com/photo-1520854221256-17451cc331bf?w=900&q=80&auto=format&fit=crop", caption: "Cô dâu xinh đẹp" },
+      { url: "https://images.unsplash.com/photo-1522673607200-164d1b6ce486?w=900&q=80&auto=format&fit=crop", caption: "Nắm tay nhau" },
+      { url: "https://images.unsplash.com/photo-1583939003579-730e3918a45a?w=900&q=80&auto=format&fit=crop", caption: "Hạnh phúc trọn vẹn" }
+    ],
+    groomBank: "Vietcombank",
+    groomAccount: "34098011949",
+    groomAccountName: "TRAN MINH NHAT",
+    brideBank: "Vietcombank",
+    brideAccount: "376634531",
+    brideAccountName: "NGUYEN THAI HA",
+    giftAmount: "",
+    giftNote: "Mừng cưới",
+    template: "classic",
+    particlesEnabled: true,
+    particleType: "sakura",
+    musicUrl: "",
+    showCountdown: true,
+    showAlbum: true,
+    showRsvp: true,
+    showGift: true,
+    showStory: true,
+    showSchedule: true,
+    slug: "minh-nhat-thai-ha",
+    /* Nơi nhận RSVP — mẫu để chế độ local (chỉ lưu trên máy khách) vì chưa
+       có Apps Script URL / Formspree thật của cặp đôi. Admin dán URL thật
+       trong Builder (mục Nhận RSVP) rồi xuất lại thiệp. KHÔNG bịa URL. */
+    rsvp: { mode: "local", appsScriptUrl: "", formspreeUrl: "" }
+  };
+  root.WEDDING_SAMPLE = SAMPLE;
+  if (typeof module !== "undefined" && module.exports) module.exports = SAMPLE;
+})(typeof window !== "undefined" ? window : globalThis);
+
+</script>
+<script>
+/* Admin Builder — state, live preview, templates, particles, export, GitHub push.
+   State lưu localStorage khóa "wedding-builder-v1" (tự lưu sau mỗi lần sửa).
+   Token GitHub chỉ lưu khi người dùng tick "Lưu token trên máy này", khóa
+   riêng "wedding-builder-gh-token", và chỉ gửi tới api.github.com. */
+(function () {
+  "use strict";
+
+  var LS_KEY = "wedding-builder-v1";
+  var GH_KEY = "wedding-builder-gh-token";
+  var GH_META_KEY = "wedding-builder-gh-meta";
+  var $ = function (s, c) { return (c || document).querySelector(s); };
+  var $$ = function (s, c) { return Array.prototype.slice.call((c || document).querySelectorAll(s)); };
+
+  var ExportLib = window.WeddingExport;
+  var SAMPLE = window.WEDDING_SAMPLE || {};
+
+  function clone(o) { return JSON.parse(JSON.stringify(o)); }
+  function givenName(full) {
+    var parts = String(full || "").trim().split(/\s+/).filter(Boolean);
+    return parts.slice(-2).join(" ");
+  }
+  function slugOf(st) { return ExportLib.slugFor ? ExportLib.slugFor(st) : ExportLib.coupleSlug(st); }
+  function blankState() {
+    return {
+      groomName: "", brideName: "", groomFather: "", groomMother: "",
+      brideFather: "", brideMother: "", weddingDate: "", rsvpDeadline: "",
+      groomPhone: "", bridePhone: "", inviteText: "", coverUrl: "",
+      vuQuyTime: "09:00", vuQuyPlace: "Tư gia Nhà Gái", vuQuyAddress: "",
+      partyWelcome: "11:00", partyStart: "11:30", partyPlace: "", partyAddress: "",
+      dressCode: "", schedule: [{ time: "09:00", title: "Lễ Vu Quy", desc: "" }],
+      story: [{ date: "", title: "", desc: "" }],
+      album: [{ url: "", caption: "" }],
+      groomBank: "", groomAccount: "", groomAccountName: "",
+      brideBank: "", brideAccount: "", brideAccountName: "",
+      giftAmount: "", giftNote: "Mừng cưới",
+      template: "classic", particlesEnabled: true, particleType: "sakura",
+      musicUrl: "", showCountdown: true, showAlbum: true, showRsvp: true,
+      showGift: true, showStory: true, showSchedule: true, slug: "",
+      /* Nơi nhận RSVP trên thiệp xuất: apps-script | formspree | local.
+         URL để trống = chưa cấu hình, thiệp xuất KHÔNG báo thành công giả. */
+      rsvp: { mode: "local", appsScriptUrl: "", formspreeUrl: "" }
+    };
+  }
+
+  function loadState() {
+    try {
+      var raw = localStorage.getItem(LS_KEY);
+      if (raw) {
+        var s = JSON.parse(raw);
+        var base = blankState();
+        Object.keys(base).forEach(function (k) { if (s[k] !== undefined) base[k] = s[k]; });
+        /* Gộp riêng object rsvp để state cũ (chưa có rsvp) không mất mặc định. */
+        if (s.rsvp && typeof s.rsvp === "object") {
+          base.rsvp = Object.assign(blankState().rsvp, s.rsvp);
+          if (["apps-script", "formspree", "local"].indexOf(base.rsvp.mode) < 0) base.rsvp.mode = "local";
+        }
+        return base;
+      }
+    } catch (e) { /* localStorage không dùng được thì dùng dữ liệu mẫu */ }
+    return clone(SAMPLE);
+  }
+
+  var state = loadState();
+  var slugTouched = !!state.slug;
+  var engine = null;
+  var saveTimer = 0;
+  var renderTimer = 0;
+
+  /* ---------- toast + trạng thái ---------- */
+  var toastEl = null;
+  function toast(msg) {
+    if (!toastEl) toastEl = $("#toast");
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    clearTimeout(toastEl._t);
+    toastEl._t = setTimeout(function () { toastEl.classList.remove("show"); }, 2600);
+  }
+  function setStatus(el, kind, html) {
+    if (!el) return;
+    el.className = "status-line show " + kind;
+    el.innerHTML = html;
+  }
+
+  /* ---------- lưu ---------- */
+  function save() {
+    try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) { /* bộ nhớ đầy */ }
+    var ind = $("#saveState");
+    if (ind) ind.textContent = "Đã lưu tự động · " + new Date().toLocaleTimeString("vi-VN");
+  }
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(save, 300);
+  }
+  function scheduleRender() {
+    clearTimeout(renderTimer);
+    renderTimer = setTimeout(renderPreview, 250);
+  }
+
+  /* ---------- preview ---------- */
+  function renderPreview() {
+    var styleEl = $("#previewStyle");
+    var t = ExportLib.TEMPLATES[state.template] || ExportLib.TEMPLATES.classic;
+    if (styleEl) styleEl.textContent = ExportLib.templateCSS(t);
+    var box = $("#previewBox");
+    if (!box) return;
+    if (engine) { engine.destroy(); engine = null; }
+    box.innerHTML = ExportLib.renderCardHTML(state);
+    var slugEl = $("#previewSlug");
+    if (slugEl) slugEl.textContent = slugOf(state);
+    // RSVP trong preview chỉ là bản thử — KHÔNG gửi thật để tránh làm bẩn
+    // Sheet / hộp thư của khách. RSVP thật chỉ chạy trên file thiệp đã xuất.
+    var form = box.querySelector("[data-rsvp-form]");
+    if (form) form.addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      var mode = (state.rsvp && state.rsvp.mode) || "local";
+      var dest = mode === "apps-script" ? "Google Sheet (Apps Script)"
+        : mode === "formspree" ? "Formspree"
+        : "chỉ lưu trên máy khách";
+      toast("Bản xem trước — không gửi thật. Trên thiệp đã xuất, RSVP sẽ gửi về " + dest + ".");
+    });
+    // Nút sao chép STK trong preview
+    $$("[data-copy-stk]", box).forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        copyText(btn.getAttribute("data-copy-stk"), "Đã sao chép STK.");
+      });
+    });
+    // Particles
+    var canvas = box.querySelector("#fxCanvas");
+    if (canvas && state.particlesEnabled) {
+      engine = new window.ParticleEngine(canvas, { type: state.particleType });
+      engine.start();
+    }
+    tickCountdown();
+    // Nhạc nền trong khung preview: giữ lại thẻ <audio> thật + nút ♪ nổi,
+    // gán lại src mỗi khi link đổi (xem syncPreviewMusic).
+    syncPreviewMusic();
+  }
+
+  function tickCountdown() {
+    var box = $("#previewBox [data-countdown]");
+    if (!box) return;
+    var target = new Date(box.getAttribute("data-target"));
+    var diff = target - new Date();
+    var vals = { d: 0, h: "00", m: "00", s: "00" };
+    if (diff > 0) {
+      vals.d = Math.floor(diff / 86400000);
+      vals.h = String(Math.floor(diff % 86400000 / 3600000)).padStart(2, "0");
+      vals.m = String(Math.floor(diff % 3600000 / 60000)).padStart(2, "0");
+      vals.s = String(Math.floor(diff % 60000 / 1000)).padStart(2, "0");
+    }
+    $$("[data-cd]", box).forEach(function (el) {
+      el.textContent = vals[el.getAttribute("data-cd")];
+    });
+  }
+  setInterval(tickCountdown, 1000);
+
+  function copyText(text, okMsg) {
+    function done() { toast(okMsg || "Đã sao chép."); }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(function () { toast("Không sao chép được — hãy copy tay."); });
+    } else {
+      var ta = document.createElement("textarea");
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); done(); } catch (e) { toast("Không sao chép được — hãy copy tay."); }
+      ta.remove();
+    }
+  }
+
+  /* ---------- bind form ---------- */
+  function bindSimple() {
+    $$("[data-bind]").forEach(function (input) {
+      var key = input.getAttribute("data-bind");
+      if (input.type === "checkbox") { input.checked = !!state[key]; }
+      else if (state[key] !== undefined) { input.value = state[key]; }
+      input.addEventListener("input", function () {
+        state[key] = input.type === "checkbox" ? input.checked : input.value;
+        if (key === "groomName" || key === "brideName") {
+          if (!slugTouched) {
+            state.slug = ExportLib.slugFor({ groomName: givenName(state.groomName), brideName: givenName(state.brideName), slug: "" });
+            var slugInput = $('[data-bind="slug"]');
+            if (slugInput) slugInput.value = state.slug;
+          }
+        }
+        if (key === "slug") slugTouched = true;
+        scheduleSave(); scheduleRender();
+        if (key === "musicUrl") syncPreviewMusic();
+        if (["groomBank", "groomAccount", "groomAccountName", "brideBank", "brideAccount", "brideAccountName", "giftAmount", "giftNote"].indexOf(key) >= 0) renderQrPreview();
+      });
+    });
+    // Checkbox hiển thị (showCountdown...)
+    $$("[data-bind-check]").forEach(function (input) {
+      var key = input.getAttribute("data-bind-check");
+      input.checked = !!state[key];
+      input.addEventListener("change", function () {
+        state[key] = input.checked;
+        scheduleSave(); scheduleRender();
+      });
+    });
+  }
+
+  function renderTemplatePicker() {
+    var wrap = $("#templatePicker");
+    if (!wrap) return;
+    wrap.innerHTML = "";
+    Object.keys(ExportLib.TEMPLATES).forEach(function (id) {
+      var t = ExportLib.TEMPLATES[id];
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "tpl-card";
+      btn.setAttribute("aria-pressed", state.template === id ? "true" : "false");
+      btn.innerHTML = '<div class="tpl-swatch" style="background:' + t.bg + ";color:" + t.primary + ";border:1px solid " + t.line + '">' +
+        ExportLib.esc(state.groomName ? state.groomName.charAt(0) : "N") + " &amp; " +
+        ExportLib.esc(state.brideName ? state.brideName.charAt(0) : "H") + "</div>" +
+        '<div style="font-size:13px;font-weight:700">' + ExportLib.esc(t.name) + "</div>" +
+        '<div style="font-size:11px;color:#6b7280">' + t.primary + " · " + t.accent + "</div>";
+      btn.addEventListener("click", function () {
+        state.template = id;
+        renderTemplatePicker();
+        scheduleSave(); renderPreview();
+      });
+      wrap.appendChild(btn);
+    });
+  }
+
+  function renderParticleControls() {
+    var toggle = $("#particleToggle");
+    if (toggle) toggle.checked = !!state.particlesEnabled;
+    $$("[data-particle-type]").forEach(function (btn) {
+      btn.setAttribute("aria-pressed", state.particleType === btn.getAttribute("data-particle-type") ? "true" : "false");
+    });
+  }
+
+  function renderQrPreview() {
+    [["groom", "qrGroom"], ["bride", "qrBride"]].forEach(function (pair) {
+      var who = pair[0], boxId = pair[1];
+      var box = document.getElementById(boxId);
+      if (!box) return;
+      var url = ExportLib.vietqrUrl(state[who + "Bank"], state[who + "Account"], state[who + "AccountName"], state.giftAmount, state.giftNote || "Mung cuoi");
+      if (url) {
+        box.innerHTML = '<img src="' + ExportLib.esc(url) + '" alt="QR VietQR ' + who + '">' +
+          '<p style="font-size:12px;color:#6b7280;text-align:center">' + ExportLib.esc(state[who + "Bank"]) + " · " + ExportLib.esc(state[who + "Account"]) + " · " + ExportLib.esc(state[who + "AccountName"]) + "</p>";
+      } else {
+        box.innerHTML = '<p style="font-size:13px;color:#9ca3af;text-align:center;padding:12px">Nhập đủ Ngân hàng + Số TK + Tên chủ TK để xem mã QR VietQR.</p>';
+      }
+    });
+    var mapFrame = $("#mapPreview");
+    if (mapFrame) {
+      var q = state.partyPlace ? (state.partyPlace + ", " + state.partyAddress) : state.partyAddress;
+      mapFrame.src = q ? ExportLib.mapsEmbed(q) : "";
+      mapFrame.style.display = q ? "" : "none";
+    }
+  }
+
+  /* ---------- nhạc nền: 1 audio dùng chung cho nút Nghe thử + nút ♪ trong preview ----------
+     Lỗi cũ: khung Live Preview không có thẻ <audio> nào (nút ♪ + audio chỉ tồn
+     tại trong file thiệp đã xuất), nên dán link MP3 vào Builder mà không nghe
+     được gì; nút "Nghe thử" thì dùng Audio riêng, đổi link khi đang phát cũng
+     không đổi bài, lỗi chỉ hiện bằng toast rồi mất. */
+  var previewAudioEl = null; // thẻ <audio> thật nằm trong khung preview (#previewFrame)
+  var previewMusicBtn = null; // nút ♪ nổi trong khung preview
+  var musicWasPlaying = false;
+
+  // Kiểm tra nhanh link nhạc: trả về chuỗi cảnh báo, hoặc null nếu link có vẻ ổn.
+  // Chỉ là gợi ý: link lạ vẫn cho bấm Nghe thử, lỗi thật sẽ hiện khi phát.
+  function validateMusicUrl(raw) {
+    var url = (raw || "").trim();
+    if (!url) return null;
+    if (/^http:\/\//i.test(url) && window.location.protocol === "https:") {
+      return "Link http:// sẽ bị chặn trên trang https:// — hãy dùng link https://.";
+    }
+    if (/(youtube\.com|youtu\.be|zingmp3\.vn|mp3\.zing\.vn|nhaccuatui\.com|soundcloud\.com|facebook\.com|tiktok\.com)/i.test(url)) {
+      return "Link này là trang web nghe nhạc, không phải file âm thanh trực tiếp — cần link file trực tiếp, ví dụ https://…/ten-bai.mp3.";
+    }
+    if (/drive\.google\.com/i.test(url) && !/export=download/i.test(url)) {
+      return "Link Google Drive dạng xem trang không phát được — cần link tải trực tiếp (…/uc?export=download&id=…).";
+    }
+    var path = url.split("?")[0].split("#")[0];
+    if (!/\.(mp3|m4a|aac|ogg|oga|wav|flac)$/i.test(path)) {
+      return "Link không phải file âm thanh trực tiếp (.mp3/.m4a) hoặc bị chặn quyền truy cập.";
+    }
+    return null;
+  }
+  function showMusicWarn(msg) {
+    var el = $("#musicWarn");
+    if (!el) return;
+    if (msg) { el.textContent = msg; el.hidden = false; }
+    else { el.textContent = ""; el.hidden = true; }
+  }
+  function syncMusicButtons() {
+    var playing = previewAudioEl && !previewAudioEl.paused;
+    var testBtn = $("#btnTestMusic");
+    if (testBtn) testBtn.textContent = playing ? "⏸ Dừng nghe thử" : "▶ Nghe thử nhạc";
+    if (previewMusicBtn) {
+      previewMusicBtn.textContent = playing ? "❚❚" : "♪";
+      previewMusicBtn.classList.toggle("playing", !!playing);
+    }
+  }
+  function ensurePreviewMusic() {
+    var frame = $("#previewFrame");
+    if (!frame) return null;
+    if (!previewAudioEl || !frame.contains(previewAudioEl)) {
+      previewAudioEl = document.createElement("audio");
+      previewAudioEl.setAttribute("data-preview-music", "");
+      previewAudioEl.loop = true;
+      previewAudioEl.preload = "metadata";
+      previewAudioEl.addEventListener("error", function () {
+        musicWasPlaying = false;
+        showMusicWarn("Không tải được file nhạc từ link này — kiểm tra lại link MP3.");
+        syncMusicButtons();
+      });
+      previewAudioEl.addEventListener("play", function () { musicWasPlaying = true; syncMusicButtons(); });
+      previewAudioEl.addEventListener("pause", function () { musicWasPlaying = false; syncMusicButtons(); });
+      frame.appendChild(previewAudioEl);
+    }
+    if (!previewMusicBtn || !frame.contains(previewMusicBtn)) {
+      previewMusicBtn = document.createElement("button");
+      previewMusicBtn.type = "button";
+      previewMusicBtn.className = "music-btn";
+      previewMusicBtn.setAttribute("data-preview-music-btn", "");
+      previewMusicBtn.setAttribute("aria-label", "Bật / tắt nhạc nền trong bản xem trước");
+      previewMusicBtn.textContent = "♪";
+      previewMusicBtn.style.position = "absolute";
+      previewMusicBtn.style.right = "14px";
+      previewMusicBtn.style.bottom = "16px";
+      previewMusicBtn.addEventListener("click", togglePreviewMusic);
+      frame.appendChild(previewMusicBtn);
+    }
+    return previewAudioEl;
+  }
+  // Gán lại src + load() mỗi khi link đổi; đang phát thì chuyển sang bài mới.
+  function syncPreviewMusic() {
+    var audio = ensurePreviewMusic();
+    if (!audio) return;
+    var url = (state.musicUrl || "").trim();
+    showMusicWarn(validateMusicUrl(url));
+    if (previewMusicBtn) previewMusicBtn.style.display = url ? "" : "none";
+    if (!url) {
+      if (!audio.paused) audio.pause();
+      audio.removeAttribute("src");
+      audio.load();
+      syncMusicButtons();
+      return;
+    }
+    if (audio.dataset.src !== url) {
+      var wasPlaying = !audio.paused;
+      audio.dataset.src = url;
+      audio.src = url;
+      audio.load();
+      if (wasPlaying) {
+        audio.play().then(syncMusicButtons).catch(function (err) {
+          showMusicWarn("Không phát được link nhạc này" + (err && err.name ? " (" + err.name + ")" : "") + " — kiểm tra lại link MP3.");
+          syncMusicButtons();
+        });
+      }
+    }
+    syncMusicButtons();
+  }
+  function togglePreviewMusic() {
+    var url = (state.musicUrl || "").trim();
+    if (!url) { toast("Chưa có link nhạc MP3."); return; }
+    var audio = ensurePreviewMusic();
+    if (!audio) return;
+    if (audio.paused) {
+      if (audio.dataset.src !== url) { audio.dataset.src = url; audio.src = url; audio.load(); }
+      audio.play().then(syncMusicButtons).catch(function (err) {
+        showMusicWarn("Không phát được link nhạc này" + (err && err.name ? " (" + err.name + ")" : "") + " — kiểm tra lại link MP3.");
+        syncMusicButtons();
+      });
+    } else {
+      audio.pause();
+      syncMusicButtons();
+    }
+  }
+
+  /* ---------- cấu hình nơi nhận RSVP ---------- */
+  var rsvpBound = false;
+  function rsvpHintText(cfg) {
+    if (cfg.mode === "apps-script" && !cfg.appsScriptUrl) return "⚠ Đang chọn Apps Script nhưng chưa dán URL — thiệp xuất sẽ chỉ lưu lời chúc trên máy khách và báo rõ là chưa cấu hình. Xem docs/RSVP.md để deploy Web App.";
+    if (cfg.mode === "formspree" && !cfg.formspreeUrl) return "⚠ Đang chọn Formspree nhưng chưa dán endpoint — thiệp xuất sẽ chỉ lưu lời chúc trên máy khách và báo rõ là chưa cấu hình.";
+    if (cfg.mode === "apps-script") return "✓ Đã có Apps Script URL — thiệp xuất sẽ POST thật về Google Sheet.";
+    if (cfg.mode === "formspree") return "✓ Đã có Formspree endpoint — thiệp xuất sẽ POST thật về Formspree.";
+    return "Chế độ chỉ lưu trên máy khách — cô dâu chú rể sẽ không nhận được RSVP.";
+  }
+  function updateRsvpHint() {
+    var hint = $("#rsvpHint");
+    if (hint) hint.textContent = rsvpHintText(state.rsvp || { mode: "local", appsScriptUrl: "", formspreeUrl: "" });
+  }
+  function syncRsvpUI() {
+    var cfg = state.rsvp || { mode: "local", appsScriptUrl: "", formspreeUrl: "" };
+    $$('input[name="rsvpMode"]').forEach(function (radio) {
+      radio.checked = radio.value === (cfg.mode || "local");
+    });
+    var a = $("#rsvpAppsScriptUrl");
+    if (a) a.value = cfg.appsScriptUrl || "";
+    var f = $("#rsvpFormspreeUrl");
+    if (f) f.value = cfg.formspreeUrl || "";
+    updateRsvpHint();
+  }
+  function bindRsvp() {
+    syncRsvpUI();
+    if (rsvpBound) return;
+    rsvpBound = true;
+    $$('input[name="rsvpMode"]').forEach(function (radio) {
+      radio.addEventListener("change", function () {
+        if (!state.rsvp) state.rsvp = { mode: "local", appsScriptUrl: "", formspreeUrl: "" };
+        state.rsvp.mode = radio.value;
+        syncRsvpUI(); scheduleSave(); scheduleRender();
+      });
+    });
+    var a = $("#rsvpAppsScriptUrl");
+    if (a) a.addEventListener("input", function () {
+      if (!state.rsvp) state.rsvp = { mode: "local", appsScriptUrl: "", formspreeUrl: "" };
+      state.rsvp.appsScriptUrl = a.value.trim();
+      updateRsvpHint(); scheduleSave(); scheduleRender();
+    });
+    var f = $("#rsvpFormspreeUrl");
+    if (f) f.addEventListener("input", function () {
+      if (!state.rsvp) state.rsvp = { mode: "local", appsScriptUrl: "", formspreeUrl: "" };
+      state.rsvp.formspreeUrl = f.value.trim();
+      updateRsvpHint(); scheduleSave(); scheduleRender();
+    });
+  }
+
+  /* ---------- danh sách động: lịch trình / câu chuyện / album ---------- */
+  function listEditor(listId, items, fields, onChange) {
+    var wrap = document.getElementById(listId);
+    if (!wrap) return;
+    wrap.innerHTML = "";
+    items.forEach(function (item, idx) {
+      var card = document.createElement("div");
+      card.className = "row-card";
+      var head = document.createElement("div");
+      head.style.cssText = "display:flex;justify-content:space-between;align-items:center;margin-bottom:8px";
+      head.innerHTML = "<b style='font-size:13px'>#" + (idx + 1) + "</b>";
+      var del = document.createElement("button");
+      del.type = "button"; del.className = "text-red-600 text-sm font-semibold";
+      del.textContent = "Xoá";
+      del.addEventListener("click", function () {
+        items.splice(idx, 1);
+        onChange(); renderAllLists(); scheduleSave(); scheduleRender();
+      });
+      head.appendChild(del);
+      card.appendChild(head);
+      fields.forEach(function (f) {
+        var div = document.createElement("div");
+        div.className = "field";
+        div.style.marginBottom = "8px";
+        var label = document.createElement("label");
+        label.textContent = f.label;
+        var input = f.multiline ? document.createElement("textarea") : document.createElement("input");
+        input.value = item[f.key] || "";
+        if (f.inputType) input.type = f.inputType;
+        input.addEventListener("input", function () {
+          item[f.key] = input.value;
+          onChange(); scheduleSave(); scheduleRender();
+        });
+        div.appendChild(label); div.appendChild(input);
+        card.appendChild(div);
+      });
+      wrap.appendChild(card);
+    });
+  }
+
+  function renderAllLists() {
+    listEditor("scheduleList", state.schedule,
+      [{ key: "time", label: "Giờ" }, { key: "title", label: "Tên mốc" }, { key: "desc", label: "Mô tả", multiline: true }],
+      function () {});
+    listEditor("storyList", state.story,
+      [{ key: "date", label: "Thời điểm" }, { key: "title", label: "Tiêu đề" }, { key: "desc", label: "Nội dung", multiline: true }],
+      function () {});
+    listEditor("albumList", state.album,
+      [{ key: "url", label: "Link ảnh", inputType: "url" }, { key: "caption", label: "Chú thích" }],
+      function () {});
+  }
+
+  /* ---------- xuất file ---------- */
+  function downloadStandalone() {
+    var html = ExportLib.buildStandaloneHTML(state);
+    var blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = (slugOf(state) || "thiep-cuoi") + ".html";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+    toast("Đã tải file thiệp độc lập — mở file là chạy ngay.");
+  }
+
+  function utf8ToBase64(str) {
+    return btoa(unescape(encodeURIComponent(str)));
+  }
+
+  /* ---------- push GitHub ---------- */
+  function ghHeaders(token) {
+    return { "Authorization": "Bearer " + token, "Accept": "application/vnd.github+json", "Content-Type": "application/json" };
+  }
+  function stepList(el, steps) {
+    el.innerHTML = "<ul>" + steps.map(function (s) {
+      return '<li class="' + (s.ok === true ? "done" : s.ok === false ? "fail" : "") + '">' +
+        (s.ok === true ? "✓ " : s.ok === false ? "✗ " : "… ") + ExportLib.esc(s.text) + "</li>";
+    }).join("") + "</ul>";
+  }
+
+  /* ---------- tên miền tùy chỉnh (Custom Domain) ---------- */
+  function normalizeDomain(raw) {
+    var d = (raw || "").trim().toLowerCase();
+    d = d.replace(/^https?:\/\//, "").replace(/\/.*$/, "").split("?")[0].split("#")[0];
+    return d;
+  }
+  // Tự nhận diện tên miền đang mở Builder: dùng khi Builder chạy trên tên miền
+  // riêng hoặc bản mirror (pages.dev / vercel.app). Trên github.io hoặc mở file
+  // local thì trả "" để giữ link github.io mặc định.
+  function detectDomain() {
+    var h = (window.location && window.location.hostname) || "";
+    if (!h || h === "localhost" || h === "127.0.0.1") return "";
+    if (/\.github\.io$/.test(h)) return "";
+    return h.toLowerCase();
+  }
+  function effectiveDomain() {
+    var typed = normalizeDomain($("#ghDomain") ? $("#ghDomain").value : "");
+    return typed || detectDomain();
+  }
+  // Ghi / cập nhật file CNAME ở thư mục gốc của nhánh đang xuất bản.
+  // GitHub Pages đọc file này để biết tên miền riêng của site.
+  // Lỗi ở bước này không làm hỏng lần xuất bản: link github.io vẫn dùng được.
+  async function syncCname(owner, repo, branch, token, domain, push) {
+    // CNAME chỉ dùng cho tên miền riêng (vd thiepcuoionline.me). Không bao giờ
+    // ghi tên miền của nền tảng mirror (pages.dev / vercel.app / workers.dev /
+    // netlify.app / github.io) — GitHub Pages sẽ nhận đó làm tên miền riêng
+    // và làm hỏng site github.io.
+    if (/\.(pages\.dev|vercel\.app|workers\.dev|netlify\.app|github\.io)$/.test(domain)) {
+      push({ ok: false, text: "Không ghi file CNAME cho tên miền nền tảng (" + domain + ") — CNAME chỉ dùng cho tên miền riêng." });
+      return;
+    }
+    try {
+      var url = "https://api.github.com/repos/" + owner + "/" + repo + "/contents/CNAME?ref=" + encodeURIComponent(branch);
+      var sha = null, current = "";
+      var getRes = await fetch(url, { headers: ghHeaders(token) });
+      if (getRes.status === 200) {
+        var existing = await getRes.json();
+        sha = existing.sha || null;
+        try { current = decodeURIComponent(escape(atob((existing.content || "").replace(/\n/g, "")))).trim(); } catch (e) {}
+      } else if (getRes.status !== 404) {
+        push({ ok: false, text: "Không đọc được file CNAME (" + getRes.status + ") — link github.io vẫn dùng được." });
+        return;
+      }
+      if (current === domain) { push({ ok: true, text: "File CNAME đã đúng tên miền — không cần ghi lại." }); return; }
+      var body = { message: "Cập nhật CNAME cho tên miền " + domain, content: utf8ToBase64(domain + "\n"), branch: branch };
+      if (sha) body.sha = sha;
+      var putRes = await fetch("https://api.github.com/repos/" + owner + "/" + repo + "/contents/CNAME", {
+        method: "PUT", headers: ghHeaders(token), body: JSON.stringify(body)
+      });
+      if (!putRes.ok) {
+        push({ ok: false, text: "Chưa ghi được file CNAME (" + putRes.status + ") — link github.io vẫn dùng được, kiểm tra lại quyền token." });
+        return;
+      }
+      push({ ok: true, text: "Đã ghi file CNAME (" + domain + ") ở thư mục gốc." });
+    } catch (e) {
+      push({ ok: false, text: "Lỗi khi ghi file CNAME — link github.io vẫn dùng được." });
+    }
+  }
+
+  async function pushToGitHub() {
+    var owner = $("#ghOwner").value.trim();
+    var repo = $("#ghRepo").value.trim() || "wedding-card-builder";
+    var branch = $("#ghBranch").value.trim() || "main";
+    var token = $("#ghToken").value.trim();
+    var domain = normalizeDomain($("#ghDomain") ? $("#ghDomain").value : "");
+    var saveToken = $("#ghSaveToken").checked;
+    var statusEl = $("#ghStatus");
+    var slug = slugOf(state);
+    var path = "khach-hang/" + slug + "/index.html";
+    var steps = [];
+    function push(step) { steps.push(step); stepList(statusEl, steps); }
+
+    if (!owner) { setStatus(statusEl, "err", "Chưa nhập GitHub Owner (tên tài khoản GitHub)."); return; }
+    if (!token) { setStatus(statusEl, "err", "Chưa nhập Personal Access Token."); return; }
+
+    setStatus(statusEl, "info", "Đang xuất bản thiệp cho khách…");
+    steps = [];
+    var btn = $("#btnPushGithub");
+    if (btn) btn.disabled = true;
+
+    try {
+      if (saveToken) { try { localStorage.setItem(GH_KEY, token); } catch (e) {} }
+      else { try { localStorage.removeItem(GH_KEY); } catch (e) {} }
+      try {
+        localStorage.setItem(GH_META_KEY, JSON.stringify({ owner: owner, repo: repo, branch: branch, domain: domain }));
+      } catch (e) {}
+
+      push({ text: "Đóng gói thiệp thành 1 file HTML độc lập…" });
+      var html = ExportLib.buildStandaloneHTML(state);
+
+      push({ text: "Kiểm tra file đã có trên repo chưa (GET contents)…" });
+      var getUrl = "https://api.github.com/repos/" + owner + "/" + repo + "/contents/" + path + "?ref=" + encodeURIComponent(branch);
+      var sha = null;
+      var getRes = await fetch(getUrl, { headers: ghHeaders(token) });
+      if (getRes.status === 200) {
+        var existing = await getRes.json();
+        sha = existing.sha || null;
+        push({ ok: true, text: "File đã có — sẽ ghi đè (sha đã lấy)." });
+      } else if (getRes.status === 404) {
+        push({ ok: true, text: "Chưa có file — sẽ tạo mới." });
+      } else if (getRes.status === 401) {
+        push({ ok: false, text: "Token sai hoặc đã hết hạn (401). Kiểm tra lại Personal Access Token." });
+        throw new Error("unauthorized");
+      } else if (getRes.status === 403) {
+        push({ ok: false, text: "Bị từ chối (403) — token thiếu quyền hoặc hết hạn mức API." });
+        throw new Error("forbidden");
+      } else {
+        var errText = await getRes.text();
+        push({ ok: false, text: "Không đọc được repo (" + getRes.status + "): " + errText.slice(0, 200) });
+        throw new Error("get-failed");
+      }
+
+      push({ text: "Đẩy file lên GitHub (PUT contents)…" });
+      var body = {
+        message: "Xuất bản thiệp cưới " + slug,
+        content: utf8ToBase64(html),
+        branch: branch
+      };
+      if (sha) body.sha = sha;
+      var putRes = await fetch("https://api.github.com/repos/" + owner + "/" + repo + "/contents/" + path, {
+        method: "PUT", headers: ghHeaders(token), body: JSON.stringify(body)
+      });
+      if (!putRes.ok) {
+        var errJson = {};
+        try { errJson = await putRes.json(); } catch (e) {}
+        var msg = (errJson && errJson.message) || ("HTTP " + putRes.status);
+        if (putRes.status === 401) msg = "Token sai hoặc hết hạn (401).";
+        if (putRes.status === 404) msg = "Repo hoặc nhánh không tồn tại (404) — kiểm tra Owner / Repo / Branch.";
+        if (putRes.status === 409) msg = "Xung đột SHA (409) — file vừa bị đổi trên repo sau lúc kiểm tra, bấm Xuất bản lại để lấy sha mới.";
+        if (putRes.status === 422) msg = "Dữ liệu không hợp lệ (422): " + msg;
+        push({ ok: false, text: "Đẩy file thất bại: " + msg });
+        throw new Error("put-failed");
+      }
+      var putJson = await putRes.json();
+      push({ ok: true, text: "Đã đẩy file lên GitHub." });
+
+      var autoDomain = effectiveDomain();
+      // Chỉ đồng bộ CNAME cho tên miền riêng người dùng gõ tay (biến domain).
+      // Tên miền tự nhận diện (autoDomain) chỉ dùng để tạo link trả về: nếu
+      // Builder đang mở trên bản mirror thì autoDomain là hostname của mirror,
+      // ghi nó vào CNAME sẽ làm GitHub Pages nhận nhầm đó làm tên miền riêng.
+      if (domain) {
+        push({ text: "Đồng bộ file CNAME cho tên miền " + domain + "…" });
+        await syncCname(owner, repo, branch, token, domain, push);
+      }
+      var pagesUrl = autoDomain
+        ? "https://" + autoDomain + "/khach-hang/" + slug + "/"
+        : "https://" + owner + ".github.io/" + repo + "/khach-hang/" + slug + "/";
+      var fileUrl = putJson.content ? putJson.content.html_url : ("https://github.com/" + owner + "/" + repo + "/blob/" + branch + "/" + path);
+      push({ ok: true, text: "Xong! Link thiệp: " + pagesUrl });
+      var domainNote = domain
+        ? "<br>Tên miền riêng: DNS phải trỏ về GitHub Pages thì link mới mở được (xem docs/CUSTOM-DOMAIN.md). Sau khi DNS nhận, bật Enforce HTTPS ở repo Settings → Pages để GitHub cấp chứng chỉ."
+        : "";
+      setStatus(statusEl, "ok", "Đã xuất bản thành công. GitHub Pages cần 1–2 phút để cập nhật lần đầu.<br>" +
+        'Link thiệp: <a class="underline font-semibold" href="' + pagesUrl + '" target="_blank" rel="noopener">' + pagesUrl + "</a><br>" +
+        'File trên repo: <a class="underline" href="' + fileUrl + '" target="_blank" rel="noopener">' + fileUrl + "</a>" + domainNote + "<br>" +
+        '<span class="block mt-2 p-2 rounded bg-amber-50 border border-amber-300 text-amber-800 text-sm">⚠ <b>Bảo mật token:</b> test xong hãy thu hồi token vừa dùng tại <a class="underline font-semibold" href="https://github.com/settings/tokens" target="_blank" rel="noopener">github.com/settings/tokens</a> (bấm Revoke), hoặc giới hạn lại quyền của nó — và bấm nút “Xoá token” trong mục này để gỡ token khỏi máy này.</span>');
+      var copyBtn = $("#btnCopyPages");
+      if (copyBtn) {
+        copyBtn.hidden = false;
+        copyBtn.onclick = function () { copyText(pagesUrl, "Đã sao chép link Pages."); };
+      }
+      toast("Đã xuất bản thiệp cho khách lên GitHub Pages.");
+    } catch (err) {
+      if (err && err.message === "unauthorized") { /* đã báo ở bước trên */ }
+      else if (err && (err.message === "get-failed" || err.message === "put-failed" || err.message === "forbidden")) { /* đã báo */ }
+      else {
+        push({ ok: false, text: "Lỗi mạng hoặc lỗi không xác định: " + (err && err.message ? err.message : err) });
+        setStatus(statusEl, "err", "Xuất bản thất bại. Kiểm tra mạng rồi thử lại — token chỉ gửi tới api.github.com.");
+      }
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  /* ---------- khởi tạo ---------- */
+  function init() {
+    bindSimple();
+    bindRsvp();
+    renderTemplatePicker();
+    renderParticleControls();
+    renderQrPreview();
+    renderAllLists();
+    renderPreview();
+
+    // Chuyển Mobile / Desktop cho preview
+    $$("[data-preview-mode]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var mode = btn.getAttribute("data-preview-mode");
+        $$("[data-preview-mode]").forEach(function (b) { b.setAttribute("aria-pressed", b === btn ? "true" : "false"); });
+        var frame = $("#previewFrame");
+        if (frame) { frame.classList.toggle("mobile", mode === "mobile"); frame.classList.toggle("desktop", mode === "desktop"); }
+        if (engine) { engine.resize(); }
+      });
+    });
+
+    // Tab mobile: Builder / Xem trước
+    var tabB = $("#tabBuilder"), tabP = $("#tabPreview");
+    var panelCol = $("#builderCol"), previewCol = $("#previewCol");
+    function setMobileTab(which) {
+      if (window.innerWidth >= 1024) return;
+      if (tabB) tabB.setAttribute("aria-pressed", which === "builder" ? "true" : "false");
+      if (tabP) tabP.setAttribute("aria-pressed", which === "preview" ? "true" : "false");
+      if (panelCol) panelCol.style.display = which === "builder" ? "" : "none";
+      if (previewCol) previewCol.style.display = which === "preview" ? "" : "none";
+    }
+    if (tabB) tabB.addEventListener("click", function () { setMobileTab("builder"); });
+    if (tabP) tabP.addEventListener("click", function () { setMobileTab("preview"); renderPreview(); });
+
+    // Hiệu ứng hạt
+    var toggle = $("#particleToggle");
+    if (toggle) toggle.addEventListener("change", function () {
+      state.particlesEnabled = toggle.checked;
+      scheduleSave(); renderPreview();
+    });
+    $$("[data-particle-type]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        state.particleType = btn.getAttribute("data-particle-type");
+        renderParticleControls();
+        scheduleSave(); renderPreview();
+      });
+    });
+
+    // Thêm dòng lịch trình / câu chuyện / album
+    var addS = $("#addSchedule");
+    if (addS) addS.addEventListener("click", function () {
+      state.schedule.push({ time: "", title: "", desc: "" });
+      renderAllLists(); scheduleSave(); scheduleRender();
+    });
+    var addSt = $("#addStory");
+    if (addSt) addSt.addEventListener("click", function () {
+      state.story.push({ date: "", title: "", desc: "" });
+      renderAllLists(); scheduleSave(); scheduleRender();
+    });
+    var addAl = $("#addAlbum");
+    if (addAl) addAl.addEventListener("click", function () {
+      if (state.album.length >= 8) { toast("Album tối đa 8 ảnh."); return; }
+      state.album.push({ url: "", caption: "" });
+      renderAllLists(); scheduleSave(); scheduleRender();
+    });
+
+    // Nhạc nền — nghe thử. QUAN TRỌNG: Safari iOS / Chrome Android bắt buộc
+    // phải có tương tác chạm mới cho phát tiếng, nên KHÔNG autoplay. Lần bấm
+    // này chính là lần chạm đó; nút dùng chung 1 audio với nút ♪ trong khung
+    // preview (xem togglePreviewMusic), lỗi phát sẽ hiện cảnh báo ngay dưới
+    // ô nhập link thay vì chỉ toast rồi mất.
+    var musicTest = $("#btnTestMusic");
+    if (musicTest) musicTest.addEventListener("click", togglePreviewMusic);
+
+    // Nút dữ liệu mẫu / lưu / xóa
+    var btnSample = $("#btnLoadSample");
+    if (btnSample) btnSample.addEventListener("click", function () {
+      state = clone(SAMPLE);
+      slugTouched = true;
+      try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {}
+      bindSimple(); syncRsvpUI(); renderTemplatePicker(); renderParticleControls();
+      renderQrPreview(); renderAllLists(); renderPreview();
+      toast("Đã nạp dữ liệu mẫu Minh Nhật & Thái Hà (DỮ LIỆU MẪU - CẦN XÁC NHẬN).");
+    });
+    var btnClear = $("#btnClear");
+    if (btnClear) btnClear.addEventListener("click", function () {
+      if (!confirm("Xoá toàn bộ dữ liệu đã nhập và quay về form trống?")) return;
+      state = blankState();
+      slugTouched = false;
+      try { localStorage.removeItem(LS_KEY); } catch (e) {}
+      bindSimple(); syncRsvpUI(); renderTemplatePicker(); renderParticleControls();
+      renderQrPreview(); renderAllLists(); renderPreview();
+      toast("Đã xoá — form trống.");
+    });
+    var btnSave = $("#btnSave");
+    if (btnSave) btnSave.addEventListener("click", function () { save(); toast("Đã lưu vào trình duyệt này."); });
+
+    // Xuất file
+    var btnExport = $("#btnExportHtml");
+    if (btnExport) btnExport.addEventListener("click", downloadStandalone);
+
+    // GitHub: nạp meta + token đã lưu (nếu có)
+    try {
+      var meta = JSON.parse(localStorage.getItem(GH_META_KEY) || "{}");
+      if (meta.owner) $("#ghOwner").value = meta.owner;
+      if (meta.repo) $("#ghRepo").value = meta.repo;
+      if (meta.branch) $("#ghBranch").value = meta.branch;
+      if (meta.domain) $("#ghDomain").value = meta.domain;
+      var savedToken = localStorage.getItem(GH_KEY);
+      if (savedToken) { $("#ghToken").value = savedToken; $("#ghSaveToken").checked = true; }
+    } catch (e) {}
+    var btnPush = $("#btnPushGithub");
+    if (btnPush) btnPush.addEventListener("click", pushToGitHub);
+    var btnClearToken = $("#btnClearToken");
+    if (btnClearToken) btnClearToken.addEventListener("click", function () {
+      try { localStorage.removeItem(GH_KEY); } catch (e) {}
+      $("#ghToken").value = "";
+      $("#ghSaveToken").checked = false;
+      toast("Đã xoá token khỏi máy này.");
+    });
+    var btnCopyPages = $("#btnCopyPages");
+    if (btnCopyPages) btnCopyPages.hidden = true;
+
+    // Sao chép STK nhanh trong panel mừng cưới
+    $$("[data-copy-field]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var target = document.querySelector(btn.getAttribute("data-copy-field"));
+        if (target && target.value) copyText(target.value, "Đã sao chép: " + target.value);
+        else toast("Chưa có giá trị để sao chép.");
+      });
+    });
+
+    window.addEventListener("beforeunload", save);
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+  else init();
+})();
+
+</script>
+</body>
+</html>
