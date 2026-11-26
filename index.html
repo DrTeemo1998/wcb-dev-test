@@ -1021,22 +1021,22 @@ body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
     return "(function(){\n" +
       "var CFG=" + JSON.stringify(cfg) + ";\n" +
       "var $=function(s,c){return (c||document).querySelector(s)};\n" +
-      "var $=function(s,c){return Array.prototype.slice.call((c||document).querySelectorAll(s))};\n" +
+      "var $$=function(s,c){return Array.prototype.slice.call((c||document).querySelectorAll(s))};\n" +
       /* Countdown — giờ địa phương, mốc Asia/Ho_Chi_Minh khi khách ở Việt Nam */
       "function pad(n){return String(n).padStart(2,'0')}\n" +
       "function tick(){\n" +
       "  var box=$('[data-countdown]'); if(!box) return;\n" +
       "  var target=new Date(box.getAttribute('data-target'));\n" +
       "  var diff=target-new Date();\n" +
-      "  if(diff<=0){ $('[data-cd]',box).forEach(function(el){el.textContent='0'}); return; }\n" +
+      "  if(diff<=0){ $$('[data-cd]',box).forEach(function(el){el.textContent='0'}); return; }\n" +
       "  var d=Math.floor(diff/86400000), h=Math.floor(diff%86400000/3600000),\n" +
       "      m=Math.floor(diff%3600000/60000), s=Math.floor(diff%60000/1000);\n" +
       "  var map={d:d,h:pad(h),m:pad(m),s:pad(s)};\n" +
-      "  $('[data-cd]',box).forEach(function(el){ el.textContent=map[el.getAttribute('data-cd')] });\n" +
+      "  $$('[data-cd]',box).forEach(function(el){ el.textContent=map[el.getAttribute('data-cd')] });\n" +
       "}\n" +
       "tick(); setInterval(tick,1000);\n" +
       /* Copy STK */
-      "$('[data-copy-stk]').forEach(function(btn){\n" +
+      "$$('[data-copy-stk]').forEach(function(btn){\n" +
       "  btn.addEventListener('click',function(){\n" +
       "    var v=btn.getAttribute('data-copy-stk');\n" +
       "    function done(){ btn.textContent='Đã sao chép'; setTimeout(function(){btn.textContent='Sao chép STK'},2000); }\n" +
@@ -1261,7 +1261,7 @@ body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
   var GH_KEY = "wedding-builder-gh-token";
   var GH_META_KEY = "wedding-builder-gh-meta";
   var $ = function (s, c) { return (c || document).querySelector(s); };
-  var $ = function (s, c) { return Array.prototype.slice.call((c || document).querySelectorAll(s)); };
+  var $$ = function (s, c) { return Array.prototype.slice.call((c || document).querySelectorAll(s)); };
 
   var ExportLib = window.WeddingExport;
   var SAMPLE = window.WEDDING_SAMPLE || {};
@@ -1371,7 +1371,7 @@ body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
       toast("Bản xem trước — không gửi thật. Trên thiệp đã xuất, RSVP sẽ gửi về " + dest + ".");
     });
     // Nút sao chép STK trong preview
-    $("[data-copy-stk]", box).forEach(function (btn) {
+    $$("[data-copy-stk]", box).forEach(function (btn) {
       btn.addEventListener("click", function () {
         copyText(btn.getAttribute("data-copy-stk"), "Đã sao chép STK.");
       });
@@ -1400,7 +1400,7 @@ body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
       vals.m = String(Math.floor(diff % 3600000 / 60000)).padStart(2, "0");
       vals.s = String(Math.floor(diff % 60000 / 1000)).padStart(2, "0");
     }
-    $("[data-cd]", box).forEach(function (el) {
+    $$("[data-cd]", box).forEach(function (el) {
       el.textContent = vals[el.getAttribute("data-cd")];
     });
   }
@@ -1420,7 +1420,7 @@ body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
 
   /* ---------- bind form ---------- */
   function bindSimple() {
-    $("[data-bind]").forEach(function (input) {
+    $$("[data-bind]").forEach(function (input) {
       var key = input.getAttribute("data-bind");
       if (input.type === "checkbox") { input.checked = !!state[key]; }
       else if (state[key] !== undefined) { input.value = state[key]; }
@@ -1440,7 +1440,7 @@ body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
       });
     });
     // Checkbox hiển thị (showCountdown...)
-    $("[data-bind-check]").forEach(function (input) {
+    $$("[data-bind-check]").forEach(function (input) {
       var key = input.getAttribute("data-bind-check");
       input.checked = !!state[key];
       input.addEventListener("change", function () {
@@ -1477,7 +1477,7 @@ body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
   function renderParticleControls() {
     var toggle = $("#particleToggle");
     if (toggle) toggle.checked = !!state.particlesEnabled;
-    $("[data-particle-type]").forEach(function (btn) {
+    $$("[data-particle-type]").forEach(function (btn) {
       btn.setAttribute("aria-pressed", state.particleType === btn.getAttribute("data-particle-type") ? "true" : "false");
     });
   }
@@ -1652,7 +1652,7 @@ body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
   }
   function syncRsvpUI() {
     var cfg = state.rsvp || { mode: "local", appsScriptUrl: "", formspreeUrl: "" };
-    $('input[name="rsvpMode"]').forEach(function (radio) {
+    $$('input[name="rsvpMode"]').forEach(function (radio) {
       radio.checked = radio.value === (cfg.mode || "local");
     });
     var a = $("#rsvpAppsScriptUrl");
@@ -1665,7 +1665,7 @@ body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
     syncRsvpUI();
     if (rsvpBound) return;
     rsvpBound = true;
-    $('input[name="rsvpMode"]').forEach(function (radio) {
+    $$('input[name="rsvpMode"]').forEach(function (radio) {
       radio.addEventListener("change", function () {
         if (!state.rsvp) state.rsvp = { mode: "local", appsScriptUrl: "", formspreeUrl: "" };
         state.rsvp.mode = radio.value;
@@ -1952,10 +1952,10 @@ body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
     renderPreview();
 
     // Chuyển Mobile / Desktop cho preview
-    $("[data-preview-mode]").forEach(function (btn) {
+    $$("[data-preview-mode]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         var mode = btn.getAttribute("data-preview-mode");
-        $("[data-preview-mode]").forEach(function (b) { b.setAttribute("aria-pressed", b === btn ? "true" : "false"); });
+        $$("[data-preview-mode]").forEach(function (b) { b.setAttribute("aria-pressed", b === btn ? "true" : "false"); });
         var frame = $("#previewFrame");
         if (frame) { frame.classList.toggle("mobile", mode === "mobile"); frame.classList.toggle("desktop", mode === "desktop"); }
         if (engine) { engine.resize(); }
@@ -1981,7 +1981,7 @@ body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
       state.particlesEnabled = toggle.checked;
       scheduleSave(); renderPreview();
     });
-    $("[data-particle-type]").forEach(function (btn) {
+    $$("[data-particle-type]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         state.particleType = btn.getAttribute("data-particle-type");
         renderParticleControls();
@@ -2065,7 +2065,7 @@ body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
     if (btnCopyPages) btnCopyPages.hidden = true;
 
     // Sao chép STK nhanh trong panel mừng cưới
-    $("[data-copy-field]").forEach(function (btn) {
+    $$("[data-copy-field]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         var target = document.querySelector(btn.getAttribute("data-copy-field"));
         if (target && target.value) copyText(target.value, "Đã sao chép: " + target.value);
